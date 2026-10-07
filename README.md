@@ -8,4 +8,4 @@ A Django-based classroom finder system to help new students locate their classro
 - Johnrel Layan
 - Leo Ibanez
 
-10/7/2026 100 Points
+No initial design of database 10/7/2026 70 Points
