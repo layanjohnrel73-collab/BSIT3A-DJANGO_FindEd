@@ -7,3 +7,5 @@ A Django-based classroom finder system to help new students locate their classro
 - Stephine Nickle Gestupa
 - Johnrel Layan
 - Leo Ibanez
+
+10/7/2026 100 Points
