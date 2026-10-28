@@ -1,0 +1,194 @@
+{% load static %}
+{{ gate|json_script:"tracker-gate" }}
+{% csrf_token %}
+<style>
+  .tracker-widget { --trk-cyan: #22d3ee; --trk-cyan-deep: #0891b2; --trk-dark: #080b12; }
+  .tracker-shell { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid #1d3340;
+    box-shadow: 0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.05); background: var(--trk-dark); }
+  #tracker-map { width: 100%; height: var(--trk-map-height, clamp(560px, calc(100vh - 190px), 900px)); background: #080b12; }
+  .trk-fallback { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: .4rem; text-align: center; padding: 2rem; color: #e8f3f7;
+    background: linear-gradient(rgba(8,11,18,.78), rgba(8,11,18,.92)),
+      url('{% static 'img/kcc-aerial.jpg' %}') center/cover no-repeat; }
+  .trk-fallback i { font-size: 1.7rem; color: #67e8f9; }
+  .trk-fallback b { font-size: 1rem; }
+  .trk-fallback span { font-size: 12px; color: #b8c4cd; max-width: 340px; }
+  .tracker-widget.map-failed .tracker-panel,
+  .tracker-widget.map-failed .tracker-livebadge,
+  .tracker-widget.map-failed .basemap-tag { display: none; }
+  .maplibregl-canvas { outline: none; }
+  .maplibregl-ctrl-group { background: rgba(9,15,22,.92) !important; border: 1px solid rgba(255,255,255,.14) !important;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4) !important; }
+  .maplibregl-ctrl-group button + button { border-top-color: rgba(255,255,255,.1) !important; }
+  .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(1) hue-rotate(180deg); }
+  .maplibregl-ctrl-attrib { background: rgba(0,0,0,.6) !important; color: #c9c4ba !important; border-radius: 8px 0 0 0 !important; }
+  .maplibregl-ctrl-attrib a { color: #67e8f9 !important; }
+
+  .tracker-panel { position: absolute; z-index: 6; top: 14px; left: 14px; width: min(345px, calc(100% - 28px));
+    max-height: calc(100% - 28px); display: flex; flex-direction: column;
+    background: rgba(8,13,20,.88); backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%);
+    border: 1px solid rgba(94,234,212,.18); border-radius: 16px; padding: 14px; color: #f5f4f0;
+    box-shadow: 0 18px 40px rgba(0,0,0,.5); }
+  .tracker-panel-head { display: flex; align-items: center; gap: .5rem; font-size: 11px; font-weight: 800;
+    letter-spacing: .14em; text-transform: uppercase; color: #67e8f9; margin-bottom: .7rem; }
+  .tracker-panel-head .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--trk-cyan);
+    box-shadow: 0 0 0 4px rgba(34,211,238,.15); }
+  .tracker-panel-head .net { font-size: 10px; letter-spacing: .06em; color: #7a8792; display: inline-flex; align-items: center; gap: .3rem; }
+  .tracker-panel-head .net .n-dot { width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
+  .tracker-panel-head .net.ok .n-dot { background: #22c55e; box-shadow: 0 0 6px rgba(34,197,94,.8); }
+  .tracker-panel-head .net.bad .n-dot { background: #ef4444; }
+
+  .tracker-status { display: flex; align-items: center; gap: .45rem; font-size: 12px; color: #9fb0bd;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+    padding: .45rem .6rem; margin-bottom: .65rem; }
+  .tracker-status .s-dot { width: 8px; height: 8px; border-radius: 50%; background: #64748b; flex-shrink: 0; }
+  .tracker-status.live { color: #a5f3fc; }
+  .tracker-status.live .s-dot { background: var(--trk-cyan); animation: trkPulse 1.4s infinite; }
+  .tracker-status.locating { color: #fde68a; }
+  .tracker-status.locating .s-dot { background: #f59e0b; animation: trkPulse 1s infinite; }
+  .tracker-status.error { color: #fca5a5; }
+  .tracker-status.error .s-dot { background: #ef4444; }
+  @keyframes trkPulse { 0% { box-shadow: 0 0 0 0 rgba(34,211,238,.55); } 100% { box-shadow: 0 0 0 9px rgba(34,211,238,0); } }
+
+  .btn-track { background: linear-gradient(135deg, #22d3ee, #0891b2); color: #04141a; font-weight: 800; border: 0;
+    border-radius: 10px; padding: .55rem .8rem; box-shadow: 0 8px 20px rgba(34,211,238,.28); }
+  .btn-track:hover { color: #04141a; filter: brightness(1.08); }
+  .btn-track:disabled { opacity: .55; }
+  .btn-track-ghost { background: rgba(255,255,255,.06); color: #f5f4f0; border: 1px solid rgba(255,255,255,.15);
+    border-radius: 10px; padding: .55rem .7rem; }
+  .btn-track-ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .btn-track-ghost:disabled { opacity: .4; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem .5rem; margin-top: .7rem;
+    padding-top: .65rem; border-top: 1px solid rgba(255,255,255,.09); }
+  .stat-grid .stat { background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07);
+    border-radius: 9px; padding: .35rem .5rem; min-width: 0; }
+  .stat-grid .stat span { display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .1em; color: #7f8d99; font-weight: 700; }
+  .stat-grid .stat b { display: block; font-size: 12.5px; color: #e8f3f7; font-weight: 800; font-variant-numeric: tabular-nums;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .map-tools { display: flex; gap: .35rem; margin-top: .6rem; }
+  .map-tools button { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .32rem;
+    background: rgba(255,255,255,.05); color: #a9b6c1; border: 1px solid rgba(255,255,255,.11); border-radius: 9px;
+    font-size: 11px; font-weight: 700; padding: .38rem .4rem; white-space: nowrap; }
+  .map-tools button:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .map-tools button.active { background: rgba(34,211,238,.14); border-color: rgba(34,211,238,.5); color: #a5f3fc; }
+
+  .basemap-switch { display: flex; gap: .25rem; margin-top: .4rem; padding: .2rem;
+    background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.08); border-radius: 10px; }
+  .basemap-switch button { flex: 1 1 50%; display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+    background: transparent; border: 1px solid transparent; border-radius: 8px; color: #8f9ca8;
+    font-size: 11px; font-weight: 700; padding: .35rem .45rem; white-space: nowrap; }
+  .basemap-switch button:hover { color: #fff; background: rgba(255,255,255,.06); }
+  .basemap-switch button.active { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.45); color: #a5f3fc; }
+  .basemap-tag { position: absolute; z-index: 5; right: 10px; bottom: 30px; pointer-events: none;
+    background: rgba(8,13,20,.85); border: 1px solid rgba(255,255,255,.16); color: #cfe9f2;
+    font-size: 9.5px; font-weight: 800; letter-spacing: .12em; padding: .25rem .55rem; border-radius: 999px; }
+
+  .list-head { display: flex; align-items: center; gap: .4rem; margin-top: .8rem; margin-bottom: .35rem;
+    font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: #7f8d99; }
+  .list-head .count { margin-left: auto; background: rgba(34,211,238,.14); color: #a5f3fc; border-radius: 999px;
+    padding: .1rem .45rem; font-size: 10px; letter-spacing: .02em; }
+  .tracker-list { overflow-y: auto; display: flex; flex-direction: column; gap: .3rem; min-height: 44px; max-height: 210px; }
+  .tracker-empty { font-size: 11.5px; color: #6f7c87; padding: .55rem .2rem; }
+  .tracker-row { display: flex; align-items: center; gap: .5rem; width: 100%; text-align: left;
+    background: rgba(255,255,255,.035); border: 1px solid rgba(255,255,255,.07); border-radius: 9px;
+    padding: .4rem .55rem; color: #dbe6ec; }
+  .tracker-row:hover { background: rgba(34,211,238,.09); border-color: rgba(34,211,238,.32); }
+  .tracker-row .row-dot { width: 9px; height: 9px; border-radius: 50%; background: #ff7a00;
+    box-shadow: 0 0 0 3px rgba(255,122,0,.16); flex-shrink: 0; }
+  .tracker-row.self .row-dot { background: var(--trk-cyan); box-shadow: 0 0 0 3px rgba(34,211,238,.18); }
+  .tracker-row .row-main { min-width: 0; flex-grow: 1; }
+  .tracker-row .row-name { display: block; font-size: 12px; font-weight: 800; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .tracker-row .row-name em { font-style: normal; font-size: 9px; color: #67e8f9; border: 1px solid rgba(34,211,238,.4);
+    border-radius: 999px; padding: 0 .35rem; margin-left: .3rem; vertical-align: 1px; }
+  .tracker-row .row-meta { display: block; font-size: 10px; color: #8a97a2; }
+  .tracker-row i { color: #67e8f9; font-size: 10px; opacity: .7; }
+
+  .tracker-livebadge { position: absolute; z-index: 5; top: 14px; right: 64px; display: none; align-items: center; gap: .4rem;
+    background: rgba(4,18,24,.88); border: 1px solid rgba(34,211,238,.55); color: #a5f3fc; font-size: 10.5px;
+    font-weight: 800; letter-spacing: .1em; padding: .32rem .6rem; border-radius: 999px; }
+  .tracker-livebadge.show { display: flex; }
+  .tracker-livebadge .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--trk-cyan); animation: trkPulse 1.4s infinite; }
+
+  .tracker-toast { position: absolute; z-index: 8; left: 50%; bottom: 22px; transform: translate(-50%, 12px);
+    background: rgba(8,13,20,.95); border: 1px solid rgba(34,211,238,.45); color: #f5f4f0; padding: .55rem .9rem;
+    border-radius: 999px; font-size: 12.5px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s ease;
+    white-space: nowrap; max-width: calc(100% - 30px); overflow: hidden; text-overflow: ellipsis; }
+  .tracker-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .trk-marker { width: 18px; height: 18px; position: relative; }
+  .trk-marker .pin { position: absolute; inset: 0; border-radius: 50%; background: #ff7a00; border: 2px solid #fff;
+    box-shadow: 0 0 0 5px rgba(255,122,0,.2), 0 3px 10px rgba(0,0,0,.5); }
+  .trk-marker .name { position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+    background: rgba(8,13,20,.9); border: 1px solid rgba(255,255,255,.18); color: #e8eef8;
+    font-size: 10px; font-weight: 700; padding: .1rem .45rem; border-radius: 999px; white-space: nowrap; }
+  .trk-marker.self .pin { background: #22d3ee; box-shadow: 0 0 0 6px rgba(34,211,238,.22), 0 0 20px rgba(34,211,238,.6), 0 3px 10px rgba(0,0,0,.5); }
+  .trk-marker.self .name { color: #a5f3fc; border-color: rgba(34,211,238,.55); }
+  .trk-marker.self::after { content: ""; position: absolute; inset: 1px; border-radius: 50%;
+    border: 2px solid rgba(34,211,238,.7); animation: markerRing 1.8s ease-out infinite; }
+  @keyframes markerRing { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(2.1); opacity: 0; } }
+
+  @media (max-width: 991.98px) {
+    #tracker-map { height: var(--trk-map-height, clamp(520px, calc(100vh - 170px), 820px)); }
+    .tracker-livebadge { right: 56px; }
+  }
+  @media (max-width: 575.98px) {
+    .tracker-panel { padding: 11px; }
+    .stat-grid .stat b { font-size: 11.5px; }
+    .map-tools button { font-size: 10.5px; }
+  }
+</style>
+
+<div class="tracker-widget"{% if map_height %} style="--trk-map-height: {{ map_height }};"{% endif %}>
+  <div class="tracker-shell">
+    <div id="tracker-map"></div>
+
+    <div class="tracker-panel">
+      <div class="tracker-panel-head">
+        <span class="dot"></span> GPS Console
+        <span class="net ms-auto" id="net-label"><span class="n-dot"></span><span id="net-text">connecting</span></span>
+      </div>
+
+      <div class="tracker-status" id="status-row">
+        <span class="s-dot"></span>
+        <span id="status-text">GPS idle — start tracking to share your position</span>
+      </div>
+
+      <div class="d-flex gap-2">
+        <button id="track-btn" class="btn btn-track flex-grow-1"><i class="fas fa-location-arrow me-1"></i> Start Tracking</button>
+        <button id="stop-btn" class="btn btn-track-ghost" title="Stop tracking" disabled><i class="fas fa-stop"></i></button>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat"><span>Latitude</span><b id="lat-val">—</b></div>
+        <div class="stat"><span>Longitude</span><b id="lng-val">—</b></div>
+        <div class="stat"><span>Accuracy</span><b id="acc-val">—</b></div>
+        <div class="stat"><span>Speed</span><b id="speed-val">—</b></div>
+        <div class="stat"><span>Distance</span><b id="dist-val">0 m</b></div>
+        <div class="stat"><span>Updated</span><b id="updated-val">—</b></div>
+      </div>
+
+      <div class="map-tools">
+        <button id="recenter-btn" class="active" title="Follow your position"><i class="fas fa-crosshairs"></i> Center</button>
+        <button id="trail-btn" class="active" title="Show trails"><i class="fas fa-route"></i> Trail</button>
+        <button id="streetview-btn" title="Open Google Street View here"><i class="fas fa-street-view"></i> Street View</button>
+      </div>
+
+      <div class="basemap-switch" role="group" aria-label="Base map view">
+        <button id="street-btn" class="active" aria-pressed="true" title="Street map view"><i class="fas fa-road"></i> Street</button>
+        <button id="satellite-btn" aria-pressed="false" title="Satellite view"><i class="fas fa-satellite"></i> Satellite</button>
+      </div>
+
+      <div class="list-head">Live now <span class="count" id="live-count">{{ active_count|default:0 }}</span></div>
+      <div class="tracker-list" id="tracker-list">
+        <div class="tracker-empty">No active trackers yet.</div>
+      </div>
+    </div>
+
+    <div class="tracker-livebadge" id="live-badge"><span class="live-dot"></span> SHARING LIVE</div>
+    <div class="basemap-tag" id="basemap-tag">STREET MAP</div>
+    <div class="tracker-toast" id="tracker-toast"></div>
+  </div>
+</div>

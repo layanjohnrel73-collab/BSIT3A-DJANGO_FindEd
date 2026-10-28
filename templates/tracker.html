@@ -1,0 +1,51 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'libs/maplibre-gl/maplibre-gl.css' %}">
+{% endblock %}
+{% block content %}
+<style>
+  .tracker-page { --trk-cyan: #22d3ee; --trk-cyan-deep: #0891b2; --trk-dark: #080b12; }
+  body { background: linear-gradient(135deg, #07121c, #0b0d12 55%, #04222b) fixed !important; }
+  .page, .page-wrapper, .page-body { background: transparent !important; }
+  .tracker-head { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; justify-content: space-between; margin-bottom: .9rem; }
+  .tracker-head h2 { color: #f5f4f0; font-weight: 800; letter-spacing: -.02em; }
+  .tracker-head .page-pretitle { color: #67e8f9; opacity: .8; }
+  .tracker-head .text-muted { color: #9aa6b2 !important; }
+  .tracker-head .btn-outline-secondary { border-color: rgba(255,255,255,.22); color: #e8eef8; }
+  .tracker-head .btn-outline-secondary:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .live-chip { display: inline-flex; align-items: center; gap: .4rem; background: rgba(34,211,238,.12);
+    border: 1px solid rgba(34,211,238,.45); color: #a5f3fc; font-size: 11px; font-weight: 800;
+    letter-spacing: .1em; padding: .35rem .65rem; border-radius: 999px; text-transform: uppercase; }
+  .live-chip .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--trk-cyan); animation: trkPulse 1.4s infinite; }
+  .tracker-help { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .7rem; font-size: 11.5px; color: #9aa6b2; }
+  .tracker-help i { color: #67e8f9; }
+</style>
+
+<div class="tracker-page">
+  <div class="tracker-head">
+    <div>
+      <div class="page-pretitle">FindEd • KCC Campus</div>
+      <h2 class="page-title mb-1"><i class="fas fa-satellite-dish me-2" style="color:#22d3ee"></i>Real Time GPS Tracker</h2>
+      <div class="text-muted">Share your live position and follow everyone moving around campus in real time.</div>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+      <span class="live-chip"><span class="live-dot"></span> Live</span>
+    </div>
+  </div>
+
+  {% include "tracker/_map.html" %}
+
+  <div class="tracker-help">
+    <span><i class="fas fa-location-crosshairs me-1"></i>Uses your browser's real GPS</span>
+    <span><i class="fas fa-users me-1"></i>Everyone tracking appears on the map</span>
+    <span><i class="fas fa-rotate me-1"></i>Refreshes every 3 seconds</span>
+    <span><i class="fas fa-road me-1"></i>Switch between street and satellite view</span>
+    <span><i class="fas fa-shield-halved me-1"></i>Only your live position is shared</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% include "tracker/_map_js.html" %}
+{% endblock %}

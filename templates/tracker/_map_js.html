@@ -1,0 +1,680 @@
+{% load static %}
+<script src="{% static 'libs/maplibre-gl/maplibre-gl.js' %}"></script>
+<script>
+(function () {
+  'use strict';
+
+  const GATE = JSON.parse(document.getElementById('tracker-gate').textContent);
+  const UPDATE_URL = "{% url 'tracker_update' %}";
+  const LIVE_URL = "{% url 'tracker_live' %}";
+  const STOP_URL = "{% url 'tracker_stop' %}";
+  const CSRF = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+  const mapEl = document.getElementById('tracker-map');
+  const trackBtn = document.getElementById('track-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  const recenterBtn = document.getElementById('recenter-btn');
+  const trailBtn = document.getElementById('trail-btn');
+const streetViewBtn = document.getElementById('streetview-btn');
+  const streetBtn = document.getElementById('street-btn');
+  const satelliteBtn = document.getElementById('satellite-btn');
+  const basemapTag = document.getElementById('basemap-tag');
+  const statusRow = document.getElementById('status-row');
+  const statusText = document.getElementById('status-text');
+  const netLabel = document.getElementById('net-label');
+  const netText = document.getElementById('net-text');
+  const liveBadge = document.getElementById('live-badge');
+  const liveCount = document.getElementById('live-count');
+  const listEl = document.getElementById('tracker-list');
+  const toastEl = document.getElementById('tracker-toast');
+  const latVal = document.getElementById('lat-val');
+  const lngVal = document.getElementById('lng-val');
+  const accVal = document.getElementById('acc-val');
+  const speedVal = document.getElementById('speed-val');
+  const distVal = document.getElementById('dist-val');
+  const updatedVal = document.getElementById('updated-val');
+
+  if (!window.maplibregl) {
+    showMapFallback('The map engine could not load. Check your connection and refresh.');
+    return;
+  }
+
+  const POLL_MS = 3000;
+  const PRESENCE_MS = 8000;
+  const SEND_EVERY_MS = 4000;
+  const MOVE_SEND_METERS = 3;
+
+  function getClientId() {
+    const KEY = 'finded.tracker.id';
+    let id = null;
+    try { id = localStorage.getItem(KEY); } catch (err) { id = null; }
+    if (!id || !/^[A-Za-z0-9_-]{6,40}$/.test(id)) {
+      id = 'g' + Math.random().toString(36).slice(2, 10);
+      try { localStorage.setItem(KEY, id); } catch (err) { }
+    }
+    return id;
+  }
+
+  const state = {
+    trackerId: getClientId(),
+    watchId: null,
+    tracking: false,
+    pos: null,
+    acc: null,
+    speed: null,
+    heading: null,
+    distance: 0,
+    lastSentAt: 0,
+    lastSentPos: null,
+    lastFixAt: null,
+    follow: true,
+    followId: null,
+    trailOn: true,
+    baseMap: 'street',
+    myId: null,
+    mapReady: false,
+    tileErrors: 0,
+    tileFallback: false
+  };
+
+  const trackersById = new Map();
+  const markers = new Map();
+  let map;
+  let accuracySource;
+  let trailsSource;
+
+  function showToast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toastEl.classList.remove('show'); }, ms || 3200);
+  }
+
+  function setStatus(text, mode) {
+    statusText.textContent = text;
+    statusRow.className = 'tracker-status' + (mode ? ' ' + mode : '');
+  }
+
+  function setNet(ok) {
+    netLabel.className = 'net ms-auto ' + (ok ? 'ok' : 'bad');
+    netText.textContent = ok ? 'connected' : 'reconnecting';
+  }
+
+  function showMapFallback(message) {
+    const widget = mapEl.closest('.tracker-widget');
+    if (widget) widget.classList.add('map-failed');
+    mapEl.innerHTML = '<div class="trk-fallback"><i class="fas fa-map-location-dot"></i>' +
+      '<b>Live map unavailable</b><span>' + escapeHtml(message) + '</span></div>';
+    setStatus('Map unavailable — ' + message, 'error');
+    setNet(false);
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (ch) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+  function toRad(d) { return d * Math.PI / 180; }
+  function haversine(a, b) {
+    const R = 6371000;
+    const dLat = toRad(b[0] - a[0]);
+    const dLng = toRad(b[1] - a[1]);
+    const h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+
+  function formatDist(m) {
+    if (m >= 1000) return (m / 1000).toFixed(m >= 10000 ? 0 : 2) + ' km';
+    return Math.max(0, Math.round(m)) + ' m';
+  }
+
+  function timeAgo(iso) {
+    const then = new Date(iso).getTime();
+    if (!isFinite(then)) return '—';
+    const sec = Math.max(0, Math.round((Date.now() - then) / 1000));
+    if (sec < 3) return 'just now';
+    if (sec < 60) return sec + 's ago';
+    const min = Math.floor(sec / 60);
+    if (min < 60) return min + 'm ago';
+    return Math.floor(min / 60) + 'h ago';
+  }
+
+  function circlePolygon(lat, lng, radius) {
+    const R = 6378137;
+    const dLat = radius / R * 180 / Math.PI;
+    const dLng = radius / (R * Math.cos(toRad(lat))) * 180 / Math.PI;
+    const coords = [];
+    for (let i = 0; i <= 64; i++) {
+      const a = i / 64 * 2 * Math.PI;
+      coords.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+    }
+    return coords;
+  }
+
+  /* ---------------- map ---------------- */
+  const style = {
+    version: 8,
+    sources: {
+      aerial: {
+        type: 'image',
+        url: "{% static 'img/kcc-aerial.jpg' %}",
+        coordinates: [
+          [122.81410217, 9.99860551],
+          [122.81616211, 9.99860551],
+          [122.81616211, 9.99657685],
+          [122.81410217, 9.99657685]
+        ]
+      },
+      satellite: {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256,
+        maxzoom: 18,
+        attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
+      },
+      streets: {
+        type: 'raster',
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'],
+        tileSize: 256,
+        maxzoom: 17,
+        attribution: 'Tiles &copy; Esri'
+      }
+    },
+    layers: [
+      { id: 'backdrop', type: 'background', paint: { 'background-color': '#0b141b' } },
+      { id: 'aerial-fallback', type: 'raster', source: 'aerial' },
+      { id: 'satellite', type: 'raster', source: 'satellite', layout: { visibility: 'none' } },
+      { id: 'streets', type: 'raster', source: 'streets' }
+    ]
+  };
+
+  try {
+    map = new maplibregl.Map({
+      container: 'tracker-map',
+      style: style,
+      center: [GATE[1], GATE[0]],
+      zoom: 16.6,
+      attributionControl: false,
+      antialias: true
+    });
+  } catch (err) {
+    showMapFallback('Your browser could not start the map. WebGL may be disabled.');
+    return;
+  }
+
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
+  map.addControl(new maplibregl.AttributionControl({ compact: true }));
+
+  map.on('error', function (e) {
+    const msg = e && e.error ? String(e.error.message || e.error) : '';
+    if (!/tile|fetch|network|failed|http/i.test(msg)) return;
+    state.tileErrors += 1;
+    if (state.tileErrors >= 5 && !state.tileFallback) {
+      state.tileFallback = true;
+      map.fitBounds([[122.81410217, 9.99657685], [122.81616211, 9.99860551]], { padding: 24, duration: 600 });
+      showToast('Street tiles are unavailable — showing the campus photo. Live tracking still works.', 6000);
+    }
+  });
+
+  map.on('dragstart', function () {
+    state.follow = false;
+    recenterBtn.classList.remove('active');
+  });
+
+  map.on('load', function () {
+    state.mapReady = true;
+
+    map.addSource('accuracy', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+    map.addSource('trails', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+    accuracySource = map.getSource('accuracy');
+    trailsSource = map.getSource('trails');
+
+    map.addLayer({
+      id: 'accuracy-fill',
+      type: 'fill',
+      source: 'accuracy',
+      paint: { 'fill-color': '#22d3ee', 'fill-opacity': 0.1 }
+    });
+    map.addLayer({
+      id: 'accuracy-line',
+      type: 'line',
+      source: 'accuracy',
+      paint: { 'line-color': '#22d3ee', 'line-width': 1.2, 'line-opacity': 0.55 }
+    });
+    map.addLayer({
+      id: 'trail-others',
+      type: 'line',
+      source: 'trails',
+      filter: ['==', ['get', 'self'], false],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#ff7a00', 'line-width': 3.4, 'line-opacity': 0.85 }
+    });
+    map.addLayer({
+      id: 'trail-self',
+      type: 'line',
+      source: 'trails',
+      filter: ['==', ['get', 'self'], true],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#22d3ee', 'line-width': 4.2, 'line-opacity': 0.95 }
+    });
+
+    renderMarkers();
+    renderTrails();
+    updateAccuracy();
+    followCamera(true);
+  });
+
+  /* ---------------- rendering ---------------- */
+  function markerFor(tracker) {
+    let marker = markers.get(tracker.id);
+    if (marker) return marker;
+
+    const el = document.createElement('div');
+    el.className = 'trk-marker' + (tracker.is_self ? ' self' : '');
+    el.innerHTML = '<span class="pin"></span><span class="name">' + escapeHtml(tracker.name) + (tracker.is_self ? ' (you)' : '') + '</span>';
+    marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([tracker.longitude, tracker.latitude])
+      .addTo(map);
+    markers.set(tracker.id, marker);
+    return marker;
+  }
+
+  function renderMarkers() {
+    if (!state.mapReady) return;
+    trackersById.forEach(function (tracker) {
+      markerFor(tracker).setLngLat([tracker.longitude, tracker.latitude]);
+    });
+  }
+
+  function renderTrails() {
+    if (!state.mapReady) return;
+    const features = [];
+    trackersById.forEach(function (tracker) {
+      const trail = tracker.trail || [];
+      if (trail.length < 2) return;
+      features.push({
+        type: 'Feature',
+        properties: { self: !!tracker.is_self },
+        geometry: {
+          type: 'LineString',
+          coordinates: trail.map(function (p) { return [p.lng, p.lat]; })
+        }
+      });
+    });
+    trailsSource.setData({ type: 'FeatureCollection', features: features });
+  }
+
+  function renderList(trackers) {
+    const sorted = trackers.slice().sort(function (a, b) {
+      return (b.is_self ? 1 : 0) - (a.is_self ? 1 : 0) || a.name.localeCompare(b.name);
+    });
+    liveCount.textContent = sorted.length;
+    if (!sorted.length) {
+      listEl.innerHTML = '<div class="tracker-empty">No active trackers yet.</div>';
+      return;
+    }
+    listEl.innerHTML = sorted.map(function (t) {
+      const speed = t.speed != null && t.speed > 0.3 ? Math.round(t.speed * 3.6) + ' km/h' : 'stationary';
+      return '<button type="button" class="tracker-row' + (t.is_self ? ' self' : '') + '" data-id="' + t.id + '">' +
+        '<span class="row-dot"></span>' +
+        '<span class="row-main">' +
+        '<span class="row-name">' + escapeHtml(t.name) + (t.is_self ? ' <em>you</em>' : '') + '</span>' +
+        '<span class="row-meta">' + timeAgo(t.last_seen) + ' • ' + speed + '</span>' +
+        '</span>' +
+        '<i class="fas fa-location-arrow"></i>' +
+        '</button>';
+    }).join('');
+    listEl.querySelectorAll('.tracker-row').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        focusTracker(Number(btn.dataset.id));
+      });
+    });
+  }
+
+  function ingest(trackers, replace) {
+    if (replace) {
+      const seen = new Set(trackers.map(function (t) { return t.id; }));
+      trackersById.forEach(function (value, id) {
+        if (!seen.has(id)) {
+          const marker = markers.get(id);
+          if (marker) marker.remove();
+          markers.delete(id);
+          trackersById.delete(id);
+        }
+      });
+    }
+    trackers.forEach(function (t) { trackersById.set(t.id, t); });
+    renderMarkers();
+    renderTrails();
+    renderList(Array.from(trackersById.values()));
+  }
+
+  function focusTracker(id) {
+    const tracker = trackersById.get(id);
+    if (!tracker) return;
+    state.follow = true;
+    state.followId = id;
+    recenterBtn.classList.add('active');
+    map.easeTo({ center: [tracker.longitude, tracker.latitude], zoom: Math.max(map.getZoom(), 17.0), duration: 700 });
+    showToast('Following ' + tracker.name, 2200);
+  }
+
+  function centerOn(lat, lng, smooth) {
+    if (!state.mapReady) return;
+    const current = map.getCenter();
+    if (Math.abs(current.lat - lat) < 1e-7 && Math.abs(current.lng - lng) < 1e-7) return;
+    if (smooth) {
+      map.easeTo({ center: [lng, lat], duration: 350 });
+    } else {
+      map.jumpTo({ center: [lng, lat] });
+    }
+  }
+
+  function followCamera(force) {
+    if (!state.follow || !state.mapReady) return;
+    if (state.followId != null) {
+      const followed = trackersById.get(state.followId);
+      if (followed) centerOn(followed.latitude, followed.longitude, !force);
+      return;
+    }
+    const self = Array.from(trackersById.values()).find(function (t) { return t.is_self; });
+    if (self) {
+      centerOn(self.latitude, self.longitude, !force);
+    } else if (state.pos) {
+      centerOn(state.pos[0], state.pos[1], !force);
+    }
+  }
+
+  function updateAccuracy() {
+    if (!state.mapReady || !accuracySource) return;
+    if (!state.pos) {
+      accuracySource.setData({ type: 'FeatureCollection', features: [] });
+      return;
+    }
+    const radius = Math.max(Math.min(state.acc || 25, 500), 5);
+    accuracySource.setData({
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [circlePolygon(state.pos[0], state.pos[1], radius)]
+      }
+    });
+  }
+
+  function updateStats() {
+    if (!state.pos) return;
+    latVal.textContent = state.pos[0].toFixed(6);
+    lngVal.textContent = state.pos[1].toFixed(6);
+    accVal.textContent = state.acc != null ? '±' + Math.round(state.acc) + ' m' : '—';
+    speedVal.textContent = state.speed != null && state.speed >= 0 ? Math.round(state.speed * 3.6) + ' km/h' : '—';
+    distVal.textContent = formatDist(state.distance);
+    updatedVal.textContent = state.lastFixAt ? timeAgo(new Date(state.lastFixAt).toISOString()) : '—';
+  }
+
+  /* ---------------- live API ---------------- */
+  async function refreshLive() {
+    try {
+      const res = await fetch(LIVE_URL + '?tracker_id=' + encodeURIComponent(state.trackerId), { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      setNet(true);
+      ingest(data.trackers || [], true);
+      followCamera(false);
+    } catch (err) {
+      setNet(false);
+    }
+  }
+
+  async function postUpdate() {
+    if (!state.tracking || !state.pos) return;
+    const payload = {
+      tracker_id: state.trackerId,
+      latitude: state.pos[0],
+      longitude: state.pos[1],
+      accuracy: state.acc,
+      speed: state.speed,
+      heading: state.heading
+    };
+    try {
+      const res = await fetch(UPDATE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      state.lastSentAt = Date.now();
+      state.lastSentPos = state.pos.slice();
+      state.myId = data.tracker.id;
+      setNet(true);
+      ingest([data.tracker], false);
+      followCamera(false);
+    } catch (err) {
+      setNet(false);
+    }
+  }
+
+  function maybePush(force) {
+    if (!state.tracking || !state.pos) return;
+    const moved = state.lastSentPos ? haversine(state.lastSentPos, state.pos) : Infinity;
+    if (force || Date.now() - state.lastSentAt >= SEND_EVERY_MS || moved >= MOVE_SEND_METERS) {
+      postUpdate();
+    }
+  }
+
+  /* ---------------- geolocation ---------------- */
+  function onFix(position) {
+    const coords = position.coords;
+    const next = [coords.latitude, coords.longitude];
+
+    if (state.pos) {
+      const moved = haversine(state.pos, next);
+      if (moved >= 1.5 && moved < 250) state.distance += moved;
+    }
+
+    state.pos = next;
+    state.acc = coords.accuracy;
+    state.speed = coords.speed;
+    state.heading = coords.heading;
+    state.lastFixAt = Date.now();
+
+    setStatus('GPS live — sharing your position', 'live');
+    liveBadge.classList.add('show');
+    updateStats();
+    updateAccuracy();
+
+    const self = Array.from(trackersById.values()).find(function (t) { return t.is_self; });
+    if (self) {
+      self.latitude = next[0];
+      self.longitude = next[1];
+      self.accuracy = coords.accuracy;
+      self.speed = coords.speed;
+      self.heading = coords.heading;
+      self.last_seen = new Date().toISOString();
+      const marker = markers.get(self.id);
+      if (marker) marker.setLngLat([next[1], next[0]]);
+      renderList(Array.from(trackersById.values()));
+    }
+
+    followCamera(false);
+    maybePush(false);
+  }
+
+  function onGpsError(err) {
+    let message = 'GPS unavailable. Check your device settings.';
+    if (err.code === 1) message = 'Location permission denied. Allow location access and try again.';
+    if (err.code === 2) message = 'Position unavailable. Move to an open area and retry.';
+    if (err.code === 3) message = 'GPS timed out. Trying again…';
+    setStatus(message, 'error');
+    showToast(message, 4500);
+    if (err.code === 1 || err.code === 2) haltTracking();
+  }
+
+  function haltTracking() {
+    if (state.watchId !== null) {
+      navigator.geolocation.clearWatch(state.watchId);
+      state.watchId = null;
+    }
+    state.tracking = false;
+    liveBadge.classList.remove('show');
+    trackBtn.disabled = false;
+    trackBtn.innerHTML = '<i class="fas fa-location-arrow me-1"></i> Start Tracking';
+    stopBtn.disabled = true;
+  }
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      setStatus('GPS is not supported by this browser.', 'error');
+      showToast('GPS is not supported by this browser.', 4000);
+      return;
+    }
+    if (state.tracking) return;
+
+    state.tracking = true;
+    state.distance = 0;
+    state.lastSentPos = null;
+    state.lastSentAt = 0;
+    distVal.textContent = '0 m';
+    trackBtn.disabled = true;
+    trackBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Locating…';
+    stopBtn.disabled = false;
+    setStatus('Locating your position…', 'locating');
+    state.watchId = navigator.geolocation.watchPosition(onFix, onGpsError, {
+      enableHighAccuracy: true,
+      maximumAge: 2000,
+      timeout: 20000
+    });
+  }
+
+  async function stopTracking() {
+    if (!state.tracking) return;
+    haltTracking();
+    state.follow = true;
+    state.followId = null;
+    recenterBtn.classList.add('active');
+
+    const self = Array.from(trackersById.values()).find(function (t) { return t.is_self; });
+    if (self) {
+      const marker = markers.get(self.id);
+      if (marker) marker.remove();
+      markers.delete(self.id);
+      trackersById.delete(self.id);
+      renderList(Array.from(trackersById.values()));
+    }
+
+    state.pos = null;
+    state.acc = null;
+    state.speed = null;
+    state.heading = null;
+    state.distance = 0;
+    state.myId = null;
+    distVal.textContent = '0 m';
+    updateAccuracy();
+    setStatus('GPS idle — start tracking to share your position', '');
+    latVal.textContent = '—';
+    lngVal.textContent = '—';
+    accVal.textContent = '—';
+    speedVal.textContent = '—';
+    updatedVal.textContent = '—';
+    showToast('Stopped sharing your live position.', 3000);
+
+    try {
+      await fetch(STOP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body: JSON.stringify({ tracker_id: state.trackerId })
+      });
+    } catch (err) { }
+    refreshLive();
+  }
+
+  function stopOnUnload() {
+    if (!state.tracking) return;
+    const data = new FormData();
+    data.append('csrfmiddlewaretoken', CSRF);
+    data.append('tracker_id', state.trackerId);
+    if (navigator.sendBeacon) navigator.sendBeacon(STOP_URL, data);
+  }
+
+  function openStreetView() {
+    let lat = GATE[0], lng = GATE[1];
+    if (state.pos) { lat = state.pos[0]; lng = state.pos[1]; }
+    else if (map && map.getCenter) {
+      const c = map.getCenter();
+      lat = c.lat; lng = c.lng;
+    }
+    const url = 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=' + encodeURIComponent(lat + ',' + lng);
+    window.open(url, '_blank', 'noopener');
+    showToast('Opening Street View…', 2200);
+  }
+
+  /* ---------------- controls ---------------- */
+  trackBtn.addEventListener('click', startTracking);
+  stopBtn.addEventListener('click', stopTracking);
+
+  recenterBtn.addEventListener('click', function () {
+    state.follow = true;
+    state.followId = null;
+    recenterBtn.classList.add('active');
+    const self = Array.from(trackersById.values()).find(function (t) { return t.is_self; });
+    if (self) {
+      map.easeTo({ center: [self.longitude, self.latitude], zoom: Math.max(map.getZoom(), 17.0), duration: 600 });
+    } else if (state.pos) {
+      map.easeTo({ center: [state.pos[1], state.pos[0]], zoom: Math.max(map.getZoom(), 17.0), duration: 600 });
+    } else {
+      const others = Array.from(trackersById.values());
+      if (others.length) {
+        focusTracker(others[0].id);
+      } else {
+        showToast('Start tracking to center the map on you.', 2800);
+      }
+    }
+  });
+
+  if (streetViewBtn) streetViewBtn.addEventListener('click', openStreetView);
+
+  trailBtn.addEventListener('click', function () {
+    state.trailOn = !state.trailOn;
+    trailBtn.classList.toggle('active', state.trailOn);
+    if (state.mapReady) {
+      const visibility = state.trailOn ? 'visible' : 'none';
+      map.setLayoutProperty('trail-self', 'visibility', visibility);
+      map.setLayoutProperty('trail-others', 'visibility', visibility);
+    }
+  });
+
+  function setBaseMap(mode) {
+    state.baseMap = mode;
+    const useSatellite = mode === 'satellite';
+    streetBtn.classList.toggle('active', !useSatellite);
+    satelliteBtn.classList.toggle('active', useSatellite);
+    streetBtn.setAttribute('aria-pressed', String(!useSatellite));
+    satelliteBtn.setAttribute('aria-pressed', String(useSatellite));
+    basemapTag.textContent = useSatellite ? 'SATELLITE' : 'STREET MAP';
+    if (!state.mapReady) return;
+    map.setLayoutProperty('satellite', 'visibility', useSatellite ? 'visible' : 'none');
+    map.setLayoutProperty('streets', 'visibility', useSatellite ? 'none' : 'visible');
+  }
+
+  streetBtn.addEventListener('click', function () { setBaseMap('street'); });
+  satelliteBtn.addEventListener('click', function () { setBaseMap('satellite'); });
+
+  window.addEventListener('pagehide', stopOnUnload);
+
+  setInterval(function () {
+    if (state.lastFixAt) updatedVal.textContent = timeAgo(new Date(state.lastFixAt).toISOString());
+  }, 1000);
+
+  setInterval(refreshLive, POLL_MS);
+  setInterval(function () { maybePush(true); }, PRESENCE_MS);
+  refreshLive();
+})();
+</script>
