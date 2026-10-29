@@ -1,4 +1,4 @@
-{% load static %}
+﻿{% load static %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="X-UA-Compatible" content="ie=edge" />
   <title>
-    Sign in - Azuelo Technology
+    Sign in - FindEd
   </title>
   <link href="{% static 'libs/jsvectormap/dist/jsvectormap.css' %}" rel="stylesheet" />
   <link href="{% static 'css/tabler.css' %}" rel="stylesheet" />
@@ -17,7 +17,14 @@
   <link href="{% static 'css/tabler-marketing.css' %}" rel="stylesheet" />
   <link href="{% static 'css/tabler-themes.css' %}" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-</head>
+
+
+    <style>
+      body { background: #0f0f0f url("{% static 'img/kcc-aerial.jpg' %}") center / cover no-repeat; background-color: #0f0f0f; }
+      .alert-info { background: rgba(229, 57, 53, 0.12); border-color: #e53935; color: #ff8a80; }
+      .btn-primary { background: #e53935; border-color: #e53935; }
+    </style>
+  </head>
 
 <body>
   <script src="{% static 'js/tabler-theme.js' %}"></script>
@@ -31,6 +38,10 @@
         <i class='far fa-calendar' style='font-size:40px'></i>
         </center>
         <h2 class="h3 text-center mb-4">Sign in to start your session</h2>
+
+        <div class="alert alert-info text-center">
+          Demo credentials: <strong>FindEd</strong> / <strong>FindEd2026</strong>
+        </div>
 
         <form method="post">
           {% csrf_token %}
