@@ -6,7 +6,6 @@
 {% block content %}
 {{ buildings|json_script:"campus-buildings" }}
 {{ pins|json_script:"campus-pins" }}
-{{ paths|json_script:"campus-paths" }}
 {{ gate|json_script:"campus-gate" }}
 {{ subjects|json_script:"campus-subjects" }}
 {{ selected_subject|json_script:"selected-subject" }}
@@ -49,8 +48,10 @@
   .btn-ride { background: linear-gradient(135deg, #ff8c1a, #ff6a00); color: #140d06; font-weight: 800; border: 0;
     border-radius: 10px; padding: .55rem .8rem; box-shadow: 0 8px 20px rgba(255,106,0,.3); }
   .btn-ride:hover { color: #140d06; filter: brightness(1.08); }
-  .btn-ride-ghost { background: rgba(255,255,255,.06); color: #f5f4f0; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; }
-  .btn-ride-ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .btn-ride.btn-stop { background: linear-gradient(135deg, #f43f5e, #dc2626); color: #fff; box-shadow: 0 8px 20px rgba(220,38,38,.32); }
+  .btn-sos { background: linear-gradient(135deg, #ef4444, #b91c1c); color: #fff; font-weight: 800; border: 0;
+    border-radius: 10px; padding: .55rem .8rem; box-shadow: 0 8px 20px rgba(185,28,28,.3); }
+  .btn-sos:hover { color: #fff; filter: brightness(1.1); }
   .ride-options { display: flex; gap: .35rem; margin-top: .55rem; flex-wrap: wrap; }
   .ride-options button { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
     background: rgba(255,255,255,.06); color: #cfc9be; border: 1px solid rgba(255,255,255,.12); border-radius: 9px;
@@ -67,72 +68,23 @@
   .ride-livebadge.show { display: flex; }
   .ride-livebadge .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #38bdf8; animation: livePulse 1.4s infinite; }
 
-  .ride-hud { position: absolute; z-index: 5; left: 14px; bottom: 14px; width: min(360px, calc(100% - 28px));
+  .ride-hud { position: absolute; z-index: 5; left: 14px; bottom: 14px; width: min(380px, calc(100% - 28px));
     background: rgba(12,14,19,.88); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.13);
-    border-radius: 16px; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0,0,0,.45); transition: bottom .3s ease; }
-  .ride-shell.pov .ride-hud { bottom: 178px; }
+    border-radius: 16px; padding: 12px 14px; box-shadow: 0 16px 40px rgba(0,0,0,.45); }
   .ride-turn { display: flex; align-items: center; gap: .65rem; }
   .ride-turn .turn-icon { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
     background: rgba(255,122,0,.16); border: 1px solid rgba(255,122,0,.4); color: #ffb35c; font-size: 18px; flex-shrink: 0; }
-  .ride-turn .turn-text { font-weight: 800; font-size: 15px; line-height: 1.15; color: #fff; }
+  .ride-turn .turn-text { font-weight: 800; font-size: 15px; line-height: 1.15; color: #fff; font-variant-numeric: tabular-nums; }
   .ride-turn .turn-sub { font-size: 11px; color: #a9a397; margin-top: 2px; }
-  .ride-stats { display: flex; align-items: baseline; gap: 1rem; margin-top: .65rem; padding-top: .55rem; border-top: 1px solid rgba(255,255,255,.09); }
+  .ride-stats { display: flex; align-items: baseline; gap: .9rem; margin-top: .65rem; padding-top: .55rem; border-top: 1px solid rgba(255,255,255,.09); flex-wrap: wrap; }
   .ride-stats div { font-size: 11px; color: #9d978b; }
-  .ride-stats b { display: block; font-size: 17px; color: #fff; line-height: 1.1; }
+  .ride-stats b { display: block; font-size: 17px; color: #fff; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .ride-bar { height: 5px; border-radius: 999px; background: rgba(255,255,255,.12); margin-top: .65rem; overflow: hidden; }
   .ride-bar span { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg,#ff7a00,#ffb35c); transition: width .2s linear; }
-  .ride-shell.playing .turn-icon { animation: turnGlow 1.4s ease-in-out infinite; }
+  .track-dest { margin-top: .5rem; font-size: 11px; color: #9d978b; }
+  .track-dest b { color: #ffd39b; }
+  .ride-shell.tracking .turn-icon { animation: turnGlow 1.6s ease-in-out infinite; }
   @keyframes turnGlow { 50% { box-shadow: 0 0 0 6px rgba(255,122,0,.12); } }
-
-  .ride-cockpit { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; height: 220px; display: none;
-    pointer-events: none; }
-  .ride-shell.pov .ride-cockpit { display: block; }
-  .walker-stage { position: absolute; left: 88%; bottom: 12px; transform: translateX(-50%); width: 120px; height: 120px;
-    filter: drop-shadow(0 -12px 26px rgba(0,0,0,.5)); }
-  .walker-stage svg { width: 100%; height: 100%; overflow: visible; }
-  .ride-cockpit .cockpit-speed { position: absolute; left: 50%; bottom: 128px; transform: translateX(-50%);
-    text-align: center; color: #ffb35c; text-shadow: 0 0 18px rgba(255,122,0,.65); }
-  .ride-cockpit .cockpit-speed #speed-big { font-size: 34px; font-weight: 900; line-height: .9; letter-spacing: -.03em;
-    color: #ffd39b; font-variant-numeric: tabular-nums; }
-  .ride-cockpit .cockpit-speed small { display: block; font-size: 9px; letter-spacing: .22em; color: #9d978b; margin-top: 4px; font-weight: 800; }
-  .ride-cockpit .cockpit-brand { position: absolute; left: 50%; bottom: 2px; transform: translateX(-50%);
-    font-size: 8.5px; letter-spacing: .32em; color: rgba(255,255,255,.3); font-weight: 800; white-space: nowrap; }
-
-  .cwalker .leg, .cwalker .shin, .cwalker .arm, .cwalker .fore, .cwalker .body { transform-box: view-box; }
-  .cwalker .leg-f { transform-origin: 52px 62px; }
-  .cwalker .leg-b { transform-origin: 55px 62px; }
-  .cwalker .shin-f { transform-origin: 52px 87px; }
-  .cwalker .shin-b { transform-origin: 55px 87px; }
-  .cwalker .arm-f { transform-origin: 50px 37px; }
-  .cwalker .arm-b { transform-origin: 45px 37px; }
-  .cwalker .fore-f { transform-origin: 50px 55px; }
-  .cwalker .fore-b { transform-origin: 45px 55px; }
-  .cwalker .body { transform-origin: 50px 64px; }
-  .ride-shell.playing.pov .cwalker .leg-f { animation: wLegF .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .leg-b { animation: wLegB .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .shin-f { animation: wShinF .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .shin-b { animation: wShinB .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .arm-f { animation: wArmF .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .arm-b { animation: wArmB .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .fore-f { animation: wForeF .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .fore-b { animation: wForeB .92s linear infinite; }
-  .ride-shell.playing.pov .cwalker .body { animation: wBob .46s ease-in-out infinite alternate; }
-  .ride-shell.playing.pov .walker-stage { animation: wSweep 9s linear infinite; }
-  @keyframes wSweep {
-    0% { left: 105%; transform: translateX(-50%); opacity: 0; }
-    6% { opacity: 1; }
-    94% { opacity: 1; }
-    100% { left: -5%; transform: translateX(-50%); opacity: 0; }
-  }
-  @keyframes wLegF { 0% { transform: rotate(28deg); } 25% { transform: rotate(0deg); } 50% { transform: rotate(-27deg); } 75% { transform: rotate(-2deg); } 100% { transform: rotate(28deg); } }
-  @keyframes wLegB { 0% { transform: rotate(-27deg); } 25% { transform: rotate(-2deg); } 50% { transform: rotate(28deg); } 75% { transform: rotate(0deg); } 100% { transform: rotate(-27deg); } }
-  @keyframes wShinF { 0% { transform: rotate(5deg); } 25% { transform: rotate(2deg); } 50% { transform: rotate(34deg); } 75% { transform: rotate(12deg); } 100% { transform: rotate(5deg); } }
-  @keyframes wShinB { 0% { transform: rotate(34deg); } 25% { transform: rotate(12deg); } 50% { transform: rotate(5deg); } 75% { transform: rotate(2deg); } 100% { transform: rotate(34deg); } }
-  @keyframes wArmF { 0% { transform: rotate(-22deg); } 25% { transform: rotate(-4deg); } 50% { transform: rotate(22deg); } 75% { transform: rotate(4deg); } 100% { transform: rotate(-22deg); } }
-  @keyframes wArmB { 0% { transform: rotate(22deg); } 25% { transform: rotate(4deg); } 50% { transform: rotate(-22deg); } 75% { transform: rotate(-4deg); } 100% { transform: rotate(22deg); } }
-  @keyframes wForeF { 0% { transform: rotate(6deg); } 50% { transform: rotate(20deg); } 100% { transform: rotate(6deg); } }
-  @keyframes wForeB { 0% { transform: rotate(20deg); } 50% { transform: rotate(6deg); } 100% { transform: rotate(20deg); } }
-  @keyframes wBob { from { transform: translateY(0) rotate(-4deg); } to { transform: translateY(-2px) rotate(-1.5deg); } }
 
   .ride-atmosphere { position: absolute; z-index: 1; top: 0; left: 0; right: 0; height: 110px; pointer-events: none;
     background: linear-gradient(180deg, rgba(6,13,23,.97) 0%, rgba(12,28,45,.55) 38%, rgba(12,28,45,0) 100%); }
@@ -141,7 +93,6 @@
     background: rgba(12,14,19,.94); border: 1px solid rgba(255,122,0,.4); color: #f5f4f0; padding: .55rem .9rem;
     border-radius: 999px; font-size: 12.5px; font-weight: 700; opacity: 0; pointer-events: none; transition: all .25s ease; white-space: nowrap; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; }
   .ride-toast.show { opacity: 1; transform: translate(-50%, 0); }
-  .ride-shell.pov .ride-toast { bottom: 236px; }
 
   .dest-marker { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
   .dest-marker .pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 6px; transform: rotate(-45deg);
@@ -150,65 +101,28 @@
   .dest-marker .pin i { transform: rotate(45deg); color: #1b1208; font-size: 14px; }
   .dest-marker .tag { background: rgba(10,12,16,.9); border: 1px solid rgba(255,122,0,.5); color: #ffd39b;
     font-size: 10px; font-weight: 800; letter-spacing: .06em; padding: .18rem .45rem; border-radius: 999px; white-space: nowrap; }
-  .gate-marker { background: rgba(12,14,19,.88); border: 1px solid rgba(255,255,255,.3); color: #fff;
-    font-size: 10px; font-weight: 800; letter-spacing: .08em; padding: .22rem .5rem; border-radius: 999px; white-space: nowrap;
-    box-shadow: 0 6px 16px rgba(0,0,0,.4); }
-  .bike-marker { width: 56px; height: 56px; position: relative; }
-  .bike-marker .ring { position: absolute; inset: 1px; border-radius: 50%; border: 2px solid rgba(255,122,0,.65);
-    animation: bikePulse 1.8s ease-out infinite; }
-  .bike-marker .bike-icon { position: absolute; inset: 4px; border-radius: 50%; background: #0d1016;
-    border: 2px solid #ff7a00; box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,122,0,.35);
-    display: flex; align-items: center; justify-content: center; will-change: transform; overflow: hidden; }
-  .bike-marker .bike-icon svg { width: 40px; height: 40px; }
-  @keyframes bikePulse { 0% { transform: scale(.8); opacity: .9; } 100% { transform: scale(1.7); opacity: 0; } }
 
-  /* side-view pixel walk cycle on the moving marker */
-  .walker2 { shape-rendering: crispEdges; }
-  .walker2 .leg, .walker2 .shin, .walker2 .arm, .walker2 .forearm, .walker2 .body-bob { transform-box: view-box; }
-  .walker2 .leg-front { transform-origin: 23.2px 23.8px; }
-  .walker2 .leg-back { transform-origin: 20.5px 23.8px; }
-  .walker2 .shin-front { transform-origin: 23.2px 30.6px; }
-  .walker2 .shin-back { transform-origin: 20.5px 30.6px; }
-  .walker2 .arm-front { transform-origin: 25.5px 14.6px; }
-  .walker2 .arm-back { transform-origin: 20.6px 14.6px; }
-  .walker2 .forearm-front { transform-origin: 25.5px 20.7px; }
-  .walker2 .forearm-back { transform-origin: 20.6px 20.7px; }
-  .ride-shell.playing .walker2 .leg-front { animation: legFront .9s linear infinite; }
-  .ride-shell.playing .walker2 .leg-back { animation: legBack .9s linear infinite; }
-  .ride-shell.playing .walker2 .shin-front { animation: shinFront .9s linear infinite; }
-  .ride-shell.playing .walker2 .shin-back { animation: shinBack .9s linear infinite; }
-  .ride-shell.playing .walker2 .arm-front { animation: armFront .9s linear infinite; }
-  .ride-shell.playing .walker2 .arm-back { animation: armBack .9s linear infinite; }
-  .ride-shell.playing .walker2 .forearm-front { animation: foreFront .9s linear infinite; }
-  .ride-shell.playing .walker2 .forearm-back { animation: foreBack .9s linear infinite; }
-  .ride-shell.playing .walker2 .body-bob { animation: walkBob2 .45s ease-in-out infinite alternate; }
-  @keyframes legFront { 0% { transform: rotate(-22deg); } 25% { transform: rotate(0deg); } 50% { transform: rotate(20deg); } 75% { transform: rotate(-4deg); } 100% { transform: rotate(-22deg); } }
-  @keyframes legBack { 0% { transform: rotate(20deg); } 25% { transform: rotate(-4deg); } 50% { transform: rotate(-22deg); } 75% { transform: rotate(0deg); } 100% { transform: rotate(20deg); } }
-  @keyframes shinFront { 0% { transform: rotate(2deg); } 25% { transform: rotate(28deg); } 50% { transform: rotate(4deg); } 75% { transform: rotate(0deg); } 100% { transform: rotate(2deg); } }
-  @keyframes shinBack { 0% { transform: rotate(4deg); } 25% { transform: rotate(0deg); } 50% { transform: rotate(2deg); } 75% { transform: rotate(28deg); } 100% { transform: rotate(4deg); } }
-  @keyframes armFront { 0% { transform: rotate(18deg); } 25% { transform: rotate(2deg); } 50% { transform: rotate(-20deg); } 75% { transform: rotate(0deg); } 100% { transform: rotate(18deg); } }
-  @keyframes armBack { 0% { transform: rotate(-20deg); } 25% { transform: rotate(0deg); } 50% { transform: rotate(18deg); } 75% { transform: rotate(2deg); } 100% { transform: rotate(-20deg); } }
-  @keyframes foreFront { 0% { transform: rotate(8deg); } 50% { transform: rotate(18deg); } 100% { transform: rotate(8deg); } }
-  @keyframes foreBack { 0% { transform: rotate(18deg); } 50% { transform: rotate(8deg); } 100% { transform: rotate(18deg); } }
-  @keyframes walkBob2 { from { transform: translateY(0); } to { transform: translateY(-1px); } }
+  .live-marker { width: 28px; height: 28px; position: relative; }
+  .live-marker .live-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(56,189,248,.7);
+    animation: gpsPulse 1.8s ease-out infinite; }
+  .live-marker .live-core { position: absolute; inset: 3px; border-radius: 50%; background: #0b1220;
+    border: 2px solid #38bdf8; box-shadow: 0 6px 18px rgba(0,0,0,.55), 0 0 22px rgba(56,189,248,.5);
+    display: flex; align-items: center; justify-content: center; color: #8fd3ff; font-size: 11px; }
+  .live-marker .live-core i { transform: rotate(var(--heading, 0deg)); }
+  @keyframes gpsPulse { 0% { transform: scale(.75); opacity: .9; } 100% { transform: scale(1.9); opacity: 0; } }
 
   .ride-help { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .7rem; font-size: 11.5px; color: #a9a397; }
   .ride-help i { color: #ff9c3f; }
 
   @media (max-width: 991.98px) {
     #ride-map { height: clamp(520px, calc(100vh - 170px), 820px); }
-    .ride-cockpit { height: 170px; }
-    .walker-stage { width: 92px; height: 92px; bottom: 8px; }
-    .ride-shell.pov .ride-hud { bottom: 132px; }
-    .ride-cockpit .cockpit-speed { bottom: 96px; }
-    .ride-cockpit .cockpit-speed #speed-big { font-size: 26px; }
-    .ride-shell.pov .ride-toast { bottom: 190px; }
   }
   @media (max-width: 575.98px) {
     .ride-panel { padding: 11px; }
     .ride-options button { font-size: 11px; padding: .35rem .45rem; }
     .ride-hud { padding: 10px 12px; }
     .ride-stats { gap: .75rem; }
+    .ride-stats b { font-size: 15px; }
   }
 </style>
 
@@ -216,22 +130,23 @@
   <div class="ride-head">
     <div>
       <div class="page-pretitle">FindEd • KCC Campus</div>
-      <h2 class="page-title mb-1"><i class="fas fa-walking me-2" style="color:#ff7a00"></i>Walk Mode</h2>
-      <div class="text-muted">First-person walk to your room — live GPS, real roads, real-time turns.</div>
+      <h2 class="page-title mb-1"><i class="fas fa-satellite-dish me-2" style="color:#ff7a00"></i>Real Time GPS Tracker</h2>
+      <div class="text-muted">Live tracking of your device — real-time position, speed, route trail, and classroom guidance.</div>
     </div>
     <div class="d-flex gap-2">
-      <a href="{% url 'finder' %}" class="btn btn-outline-secondary"><i class="fas fa-map-location-dot me-1"></i> Map guide</a>
+      <a href="{% url 'street' %}" class="btn btn-outline-secondary"><i class="fas fa-street-view me-1"></i> Street Viewer</a>
+      <a href="{% url 'finder' %}" class="btn btn-outline-secondary"><i class="fas fa-location-crosshairs me-1"></i> Finder</a>
       <span class="badge bg-green-lt text-green align-self-center">Live • No API key needed</span>
     </div>
   </div>
 
-  <div class="ride-shell pov" id="ride-shell">
+  <div class="ride-shell" id="ride-shell">
     <div id="ride-map"></div>
     <div class="ride-atmosphere"></div>
 
-    <!-- Destination + ride controls -->
+    <!-- Tracker controls -->
     <div class="ride-panel">
-      <div class="ride-panel-head"><span class="dot"></span> Walk SetUp <span class="ms-auto" style="color:#6f6a61">KCC</span></div>
+      <div class="ride-panel-head"><span class="dot"></span> Live Tracker <span class="ms-auto" style="color:#6f6a61">KCC</span></div>
       <label class="form-label" for="dest-subject">Subject / class</label>
       <select id="dest-subject" class="form-select form-select-sm mb-2"></select>
       <label class="form-label" for="dest-building">Destination building</label>
@@ -239,102 +154,48 @@
       <label class="form-label" for="dest-room">Room / stop</label>
       <select id="dest-room" class="form-select form-select-sm mb-2"></select>
       <div class="d-flex gap-2">
-        <button id="ride-btn" class="btn btn-ride flex-grow-1"><i class="fas fa-walking me-1"></i> Start Walk</button>
-        <button id="reset-btn" class="btn btn-ride-ghost" title="Reset ride"><i class="fas fa-rotate-left"></i></button>
+        <button id="track-btn" class="btn btn-ride flex-grow-1"><i class="fas fa-location-crosshairs me-1"></i> Start Tracking</button>
+        <button id="sos-btn" class="btn btn-sos" title="Share my live location"><i class="fas fa-tower-broadcast"></i> SOS</button>
       </div>
       <div class="ride-options">
-        <button id="gps-btn" title="Use live GPS"><i class="fas fa-location-crosshairs"></i> GPS</button>
-        <button id="pov-btn" class="active" title="First-person view"><i class="fas fa-person-walking"></i> POV</button>
-        <button id="speed-btn" title="Ride speed"><i class="fas fa-gauge-high"></i> 2x</button>
-        <button id="overview-btn" title="See whole route"><i class="fas fa-map"></i></button>
-        <button id="layer-btn" title="Satellite / street map"><i class="fas fa-layer-group"></i></button>
-        <button id="sound-btn" title="Engine sound"><i class="fas fa-volume-xmark"></i></button>
+        <button id="follow-btn" class="active" title="Keep the map centered on me"><i class="fas fa-crosshairs"></i> Follow</button>
+        <button id="layer-btn" title="Satellite / street map"><i class="fas fa-layer-group"></i> Map</button>
+        <button id="share-btn" title="Share my live location"><i class="fas fa-share-nodes"></i> Share</button>
+        <button id="gpx-btn" title="Download recorded track (GPX)"><i class="fas fa-file-arrow-down"></i> GPX</button>
+        <button id="clear-btn" title="Clear recorded trail"><i class="fas fa-eraser"></i> Clear</button>
       </div>
-      <div id="gps-status" class="ride-gps-status d-none"><span class="live-dot"></span><span id="gps-status-text">GPS live</span></div>
+      <div id="gps-status" class="ride-gps-status d-none"><span class="live-dot"></span><span id="gps-status-text">Waiting for GPS…</span></div>
     </div>
 
     <div class="ride-livebadge" id="live-badge"><span class="live-dot"></span> LIVE GPS</div>
 
-    <!-- Turn-by-turn + stats -->
+    <!-- Live position + stats -->
     <div class="ride-hud">
       <div class="ride-turn">
-        <div class="turn-icon"><i id="turn-icon" class="fas fa-arrow-up"></i></div>
+        <div class="turn-icon"><i id="turn-icon" class="fas fa-location-crosshairs"></i></div>
         <div>
-          <div class="turn-text" id="turn-text">Ready at the Main Gate</div>
-          <div class="turn-sub"><span id="turn-dist">—</span> • <span id="dest-label">BSIT 3-A</span></div>
+          <div class="turn-text" id="coords-text">Waiting for GPS…</div>
+          <div class="turn-sub"><span id="acc-text">Accuracy —</span> • <span id="alt-text">Alt —</span></div>
         </div>
       </div>
       <div class="ride-stats">
         <div><b id="speed-val">0</b> km/h</div>
-        <div><b id="dist-val">—</b> left</div>
-        <div><b id="eta-val">—</b> ETA</div>
+        <div><b id="dist-val">0 m</b> walked</div>
+        <div><b id="time-val">0:00</b> elapsed</div>
+        <div><b id="eta-val">—</b> to room</div>
       </div>
       <div class="ride-bar"><span id="progress-bar"></span></div>
-    </div>
-
-    <!-- Walking-person POV overlay -->
-    <div class="ride-cockpit" aria-hidden="true">
-      <div class="walker-stage">
-        <svg viewBox="0 0 100 140">
-          <defs>
-            <linearGradient id="shirtGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#ffe14d"/>
-              <stop offset="1" stop-color="#e6b800"/>
-            </linearGradient>
-          </defs>
-          <g class="cwalker">
-            <ellipse cx="50" cy="120" rx="22" ry="4.5" fill="rgba(0,0,0,.4)"/>
-            <g class="leg leg-b">
-              <rect x="51.5" y="62" width="7" height="25" rx="3" fill="#16181f"/>
-              <g class="shin shin-b">
-                <rect x="51.8" y="86" width="6.4" height="20" rx="3" fill="#0a0c10"/>
-                <rect x="44.5" y="105.2" width="12.5" height="4.6" rx="2.3" fill="#9c8400"/>
-              </g>
-            </g>
-            <g class="body">
-              <g class="arm arm-b">
-                <rect x="42.4" y="36" width="5.6" height="20" rx="2.8" fill="#c7a000"/>
-                <g class="fore fore-b">
-                  <rect x="42.6" y="54" width="5.2" height="18" rx="2.6" fill="#e6b800"/>
-                  <rect x="42.2" y="70.6" width="6" height="6.2" rx="3" fill="#14171f"/>
-                </g>
-              </g>
-              <rect x="42" y="32" width="20" height="33" rx="6" fill="url(#shirtGrad)"/>
-              <rect x="42" y="32" width="6.5" height="33" rx="3" fill="rgba(255,255,255,.22)"/>
-              <rect x="45" y="28" width="5.6" height="6.4" fill="#14171f"/>
-              <circle cx="47.5" cy="22" r="8.4" fill="#14171f"/>
-              <ellipse cx="47.5" cy="16.6" rx="8.8" ry="6.2" fill="#ffd60a"/>
-              <rect x="34.6" y="15.6" width="8.4" height="2.8" rx="1.4" fill="#ffd60a"/>
-              <g class="arm arm-f">
-                <rect x="47.2" y="36" width="5.6" height="20" rx="2.8" fill="#ffd60a"/>
-                <g class="fore fore-f">
-                  <rect x="47.4" y="54" width="5.2" height="18" rx="2.6" fill="#ffe14d"/>
-                  <rect x="47" y="70.6" width="6" height="6.2" rx="3" fill="#14171f"/>
-                </g>
-              </g>
-            </g>
-            <g class="leg leg-f">
-              <rect x="48.5" y="62" width="7" height="25" rx="3" fill="#1a1d26"/>
-              <g class="shin shin-f">
-                <rect x="48.8" y="86" width="6.4" height="20" rx="3" fill="#0c0e13"/>
-                <rect x="41.5" y="104.8" width="12.5" height="4.6" rx="2.3" fill="#ffd60a"/>
-              </g>
-            </g>
-          </g>
-        </svg>
-      </div>
-      <div class="cockpit-speed"><span id="speed-big">0</span><small>KM / H</small></div>
-      <div class="cockpit-brand">KCC WALK</div>
+      <div class="track-dest">Destination: <b id="dest-label">BSIT 3-A</b></div>
     </div>
 
     <div class="ride-toast" id="ride-toast"></div>
   </div>
 
   <div class="ride-help">
-    <span><i class="fas fa-arrows-up-down-left-right me-1"></i>Drag to look around</span>
-    <span><i class="fas fa-location-crosshairs me-1"></i>GPS uses your real position</span>
-    <span><i class="fas fa-route me-1"></i>Real roads via OSRM, campus lanes inside KCC</span>
-    <span><i class="fas fa-volume-high me-1"></i>Optional engine sound</span>
+    <span><i class="fas fa-location-crosshairs me-1"></i>Uses your device GPS — allow location access</span>
+    <span><i class="fas fa-route me-1"></i>Your trail is recorded while tracking</span>
+    <span><i class="fas fa-file-arrow-down me-1"></i>Export your route as GPX</span>
+    <span><i class="fas fa-tower-broadcast me-1"></i>SOS shares your live position</span>
   </div>
 </div>
 {% endblock %}
@@ -347,7 +208,6 @@
 
   const buildings = JSON.parse(document.getElementById('campus-buildings').textContent);
   const PINS = JSON.parse(document.getElementById('campus-pins').textContent);
-  const PATHS = JSON.parse(document.getElementById('campus-paths').textContent);
   const GATE = JSON.parse(document.getElementById('campus-gate').textContent);
   const SUBJECTS = JSON.parse(document.getElementById('campus-subjects').textContent);
   const SELECTED_SUBJECT = JSON.parse(document.getElementById('selected-subject').textContent);
@@ -357,24 +217,24 @@
   const subjectSel = document.getElementById('dest-subject');
   const buildingSel = document.getElementById('dest-building');
   const roomSel = document.getElementById('dest-room');
-  const rideBtn = document.getElementById('ride-btn');
-  const resetBtn = document.getElementById('reset-btn');
-  const gpsBtn = document.getElementById('gps-btn');
+  const trackBtn = document.getElementById('track-btn');
+  const sosBtn = document.getElementById('sos-btn');
+  const followBtn = document.getElementById('follow-btn');
+  const layerBtn = document.getElementById('layer-btn');
+  const shareBtn = document.getElementById('share-btn');
+  const gpxBtn = document.getElementById('gpx-btn');
+  const clearBtn = document.getElementById('clear-btn');
   const gpsStatus = document.getElementById('gps-status');
   const gpsStatusText = document.getElementById('gps-status-text');
   const liveBadge = document.getElementById('live-badge');
-  const povBtn = document.getElementById('pov-btn');
-  const speedBtn = document.getElementById('speed-btn');
-  const overviewBtn = document.getElementById('overview-btn');
-  const layerBtn = document.getElementById('layer-btn');
-  const soundBtn = document.getElementById('sound-btn');
   const turnIcon = document.getElementById('turn-icon');
-  const turnText = document.getElementById('turn-text');
-  const turnDist = document.getElementById('turn-dist');
+  const coordsText = document.getElementById('coords-text');
+  const accText = document.getElementById('acc-text');
+  const altText = document.getElementById('alt-text');
   const destLabelEl = document.getElementById('dest-label');
   const speedVal = document.getElementById('speed-val');
-  const speedBig = document.getElementById('speed-big');
   const distVal = document.getElementById('dist-val');
+  const timeVal = document.getElementById('time-val');
   const etaVal = document.getElementById('eta-val');
   const progressBar = document.getElementById('progress-bar');
   const toastEl = document.getElementById('ride-toast');
@@ -404,30 +264,25 @@
 
   let destBuilding = buildings.some(function (b) { return b.id === 'college'; }) ? 'college' : buildings[0].id;
   let destRoom = '';
-  let route = [];
-  let cum = [];
-  let total = 0;
-  let progress = 0;
-  let playing = false;
-  let arrived = false;
-  let pov = true;
-  let follow = true;
-  let mult = 2;
-  let cameraBearing = 0;
   let mapReady = false;
-  let routeToken = 0;
-  let lastFrame = performance.now();
-  let lastHud = 0;
-  let startFromGps = false;
-  let live = { on: false, pos: null, acc: null, watchId: null };
-  let soundOn = false;
-  let engine = null;
-
-  const BASE_SPEED = 7.0;
-
+  let follow = true;
+  let satellite = true;
+  let watching = false;
+  let watchId = null;
   let map;
-  let bikeMarker, destMarker, gateMarker, liveMarker;
-  let destMarkerEl, bikeIconEl;
+  let liveMarker, liveMarkerEl, destMarker, destMarkerEl;
+  let live = { pos: null, acc: null, alt: null, heading: 0, speed: 0 };
+  let trail = [];
+  let totalDistance = 0;
+  let speedSmooth = 0;
+  let prevFix = null;
+  let lastTrailPoint = null;
+  let elapsedMs = 0;
+  let sessionStart = 0;
+  let destRemainingStart = 0;
+  let routeToken = 0;
+  let lastRouteAt = 0;
+  const WALK_SPEED = 1.4;
 
   buildingSel.value = destBuilding;
   fillRooms(destBuilding);
@@ -448,7 +303,7 @@
     destRoom = roomSel.value || subject.room;
     updateDestLabel();
     positionDestMarker();
-    resetRide();
+    onDestinationChanged();
   }
 
   function fillRooms(buildingId) {
@@ -499,64 +354,41 @@
     const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
     return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
   }
-  function lerpAngle(a, b, t) {
-    let d = ((b - a + 540) % 360) - 180;
-    return (a + d * t + 360) % 360;
-  }
   function formatDist(m) {
-    if (m >= 1000) return (m / 1000).toFixed(m >= 10000 ? 0 : 1) + ' km';
+    if (m == null || !isFinite(m)) return '—';
+    if (m >= 1000) return (m / 1000).toFixed(m >= 10000 ? 0 : 2) + ' km';
     return Math.max(0, Math.round(m)) + ' m';
   }
-  function formatEta(sec) {
-    if (sec < 60) return Math.max(1, Math.round(sec)) + ' sec';
-    if (sec < 3600) return Math.ceil(sec / 60) + ' min';
-    return (sec / 3600).toFixed(1) + ' hr';
+  function formatDuration(ms) {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const sec = s % 60;
+    if (h) return h + ':' + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+  function currentElapsed() {
+    return elapsedMs + (sessionStart ? Date.now() - sessionStart : 0);
+  }
+  function destPin() {
+    return PINS[destBuilding] || null;
+  }
+  function remainingToDest() {
+    const pin = destPin();
+    if (!live.pos || !pin) return null;
+    return haversine(live.pos, pin);
   }
 
-  function parseCampusPath(buildingId) {
-    const raw = PATHS[buildingId] || PATHS.college || [];
-    return raw.map(function (p) { return [Number(p[0]), Number(p[1])]; });
-  }
-
-  async function osrmRoute(a, b) {
+  function osrmRoute(a, b) {
     const url = 'https://router.project-osrm.org/route/v1/driving/' +
       a[1] + ',' + a[0] + ';' + b[1] + ',' + b[0] + '?overview=full&geometries=geojson&alternatives=false&steps=false';
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Route service ' + res.status);
-    const data = await res.json();
-    if (!data.routes || !data.routes.length) throw new Error('No road route');
-    return data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
-  }
-
-  function setRoute(coords) {
-    const clean = [];
-    coords.forEach(function (p) {
-      if (!isFinite(p[0]) || !isFinite(p[1])) return;
-      const last = clean[clean.length - 1];
-      if (last && haversine(last, p) < 1.2) return;
-      clean.push([p[0], p[1]]);
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('Route service ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (!data.routes || !data.routes.length) throw new Error('No road route');
+      return data.routes[0].geometry.coordinates.map(function (c) { return [c[1], c[0]]; });
     });
-    if (clean.length < 2) return;
-
-    route = clean;
-    cum = [0];
-    for (let i = 1; i < route.length; i++) {
-      cum[i] = cum[i - 1] + haversine(route[i - 1], route[i]);
-    }
-    total = cum[cum.length - 1];
-    progress = 0;
-    arrived = false;
-
-    if (mapReady) {
-      map.getSource('route-full').setData(routeFeature(route));
-      map.getSource('route-progress').setData(routeFeature([route[0], route[0]]));
-      positionDestMarker();
-      updateBike();
-      updateHud(performance.now(), true);
-    }
-    if (!playing) {
-      if (pov) startCamera(); else overview(false);
-    }
   }
 
   function routeFeature(coords) {
@@ -569,259 +401,28 @@
     };
   }
 
-  function pointAt(dist) {
-    if (!route.length) return null;
-    const d = Math.max(0, Math.min(dist, total));
-    let i = 0;
-    while (i < cum.length - 2 && cum[i + 1] < d) i++;
-    const segLen = Math.max(cum[i + 1] - cum[i], 0.0001);
-    const t = Math.max(0, Math.min(1, (d - cum[i]) / segLen));
-    const a = route[i];
-    const b = route[i + 1] || route[i];
-    return {
-      lat: a[0] + (b[0] - a[0]) * t,
-      lng: a[1] + (b[1] - a[1]) * t,
-      heading: bearing(a, b),
-      segmentIndex: i
-    };
-  }
-
-  function nextInstruction() {
-    if (!route.length) return { icon: 'up', text: 'Ready at the Main Gate', dist: 0 };
-    const p = pointAt(progress);
-    for (let j = p.segmentIndex + 1; j < route.length - 1; j++) {
-      const b1 = bearing(route[j - 1], route[j]);
-      const b2 = bearing(route[j], route[j + 1]);
-      const diff = ((b2 - b1 + 540) % 360) - 180;
-      if (Math.abs(diff) > 22) {
-        return {
-          icon: diff > 0 ? 'right' : 'left',
-          text: diff > 0 ? 'Turn right' : 'Turn left',
-          dist: Math.max(0, cum[j] - progress)
-        };
-      }
-    }
-    return { icon: 'flag', text: 'Arrive at ' + destRoom, dist: Math.max(0, total - progress) };
-  }
-
-  const turnClasses = {
-    up: 'fa-arrow-up',
-    left: 'fa-arrow-left',
-    right: 'fa-arrow-right',
-    flag: 'fa-flag-checkered'
-  };
-
-  function updateHud(now, force) {
-    if (!force && now - lastHud < 90) return;
-    lastHud = now;
-    const ins = nextInstruction();
-    turnIcon.className = 'fas ' + (turnClasses[ins.icon] || turnClasses.up);
-    turnText.textContent = ins.text;
-    turnDist.textContent = route.length ? formatDist(ins.dist) : '—';
-    destLabelEl.textContent = destRoom + ' • ' + currentBuilding().short;
-
-    const moving = playing && !arrived;
-    const kmh = moving ? Math.round(BASE_SPEED * mult * 3.6) : 0;
-    speedVal.textContent = kmh;
-    speedBig.textContent = kmh;
-    const remaining = Math.max(0, total - progress);
-    distVal.textContent = route.length ? formatDist(remaining) : '—';
-    etaVal.textContent = route.length && remaining > 0 ? formatEta(remaining / (BASE_SPEED * mult)) : (arrived ? 'Here' : '—');
-    progressBar.style.width = total > 0 ? Math.min(100, (progress / total) * 100).toFixed(1) + '%' : '0%';
-  }
-
-  function updateBike() {
-    if (!mapReady || !bikeMarker || !route.length) return;
-    const p = pointAt(progress);
-    if (!p) return;
-    bikeMarker.setLngLat([p.lng, p.lat]);
-    if (bikeIconEl) {
-      const rot = p.heading - map.getBearing();
-      bikeIconEl.style.transform = 'rotate(' + rot + 'deg)';
-    }
-  }
-
-  function updateProgressLine() {
-    if (!mapReady || !route.length) return;
-    const p = pointAt(progress);
-    if (!p) return;
-    const traveled = [];
-    for (let i = 0; i <= p.segmentIndex && i < route.length; i++) traveled.push(route[i]);
-    traveled.push([p.lat, p.lng]);
-    map.getSource('route-progress').setData(routeFeature(traveled));
-  }
-
-  function updateCamera(dt) {
-    if (!mapReady || !route.length) return;
-    if (!follow) { updateBike(); return; }
-    const p = pointAt(progress);
-    if (!p) return;
-    if (pov) {
-      const ahead = pointAt(Math.min(progress + 30, total));
-      cameraBearing = lerpAngle(cameraBearing, p.heading, Math.min(1, Math.max(dt, 0.016) * 3.2));
-      map.jumpTo({
-        center: [ahead.lng, ahead.lat],
-        bearing: cameraBearing,
-        pitch: 60,
-        zoom: 18.1
-      });
-    } else {
-      map.jumpTo({ center: [p.lng, p.lat], bearing: 0, pitch: 0, zoom: 18.1 });
-    }
-    updateBike();
-  }
-
-  function startCamera() {
-    if (!mapReady || !route.length) return;
-    follow = true;
-    if (pov) {
-      const p = pointAt(progress);
-      const ahead = pointAt(Math.min(progress + 30, total));
-      cameraBearing = p.heading;
-      map.jumpTo({ center: [ahead.lng, ahead.lat], bearing: cameraBearing, pitch: 60, zoom: 18.1 });
-    } else {
-      const p = pointAt(progress);
-      map.jumpTo({ center: [p.lng, p.lat], bearing: 0, pitch: 0, zoom: 18.1 });
-    }
-    updateBike();
-  }
-
-  function routeBounds() {
-    let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
-    route.forEach(function (p) {
-      minLat = Math.min(minLat, p[0]); maxLat = Math.max(maxLat, p[0]);
-      minLng = Math.min(minLng, p[1]); maxLng = Math.max(maxLng, p[1]);
-    });
-    return [[minLng, minLat], [maxLng, maxLat]];
-  }
-
-  function overview(animate) {
-    if (!mapReady || !route.length) return;
-    follow = false;
-    map.setPitch(0);
-    map.setBearing(0);
-    cameraBearing = 0;
-    const wide = window.innerWidth > 900;
-    map.fitBounds(routeBounds(), {
-      padding: { top: 110, bottom: wide ? 200 : 260, left: wide ? 390 : 40, right: 70 },
-      duration: animate === false ? 0 : 900,
-      maxZoom: 19
-    });
-  }
-
-  function startCameraIfNeeded() {
-    if (!route.length) return;
-    if (pov) startCamera(); else overview(false);
-  }
-
-  function resetRide() {
-    playing = false;
-    arrived = false;
-    progress = 0;
-    routeToken++;
-    shell.classList.remove('playing');
-    if (engine) engine.gain.gain.setTargetAtTime(0, engine.ctx.currentTime, 0.12);
-    rideBtn.innerHTML = '<i class="fas fa-walking me-1"></i> Start Walk';
-    updateBike();
-    updateProgressLine();
-    updateHud(performance.now(), true);
-    buildRoutePreview();
-  }
-
-  async function buildRoutePreview() {
+  function refreshDestRoute() {
+    const pin = destPin();
+    if (!mapReady || !pin || !live.pos) return;
     const token = ++routeToken;
-    const campus = parseCampusPath(destBuilding);
-    let coords = campus;
-    let fromGps = false;
-
-    if (startFromGps && live.pos) {
-      const d = haversine(live.pos, GATE);
-      if (d > 25) {
-        showToast('Building a real road route from your location…', 5000);
-        try {
-          const road = await osrmRoute(live.pos, GATE);
-          if (token !== routeToken) return;
-          coords = road.concat(campus.slice(1));
-          fromGps = true;
-        } catch (err) {
-          if (token !== routeToken) return;
-          coords = [live.pos].concat(campus);
-          fromGps = true;
-          showToast('Road routing unavailable — showing a direct line to the gate.', 4200);
-        }
-      }
-    }
-
-    if (token !== routeToken) return;
-    setRoute(coords);
-    if (fromGps) {
-      overview(true);
-    }
-    updateHud(performance.now(), true);
+    const from = live.pos.slice();
+    lastRouteAt = Date.now();
+    osrmRoute(from, pin).then(function (coords) {
+      if (token !== routeToken || !mapReady) return;
+      map.getSource('route-full').setData(routeFeature(coords));
+    }).catch(function () {
+      if (token !== routeToken || !mapReady) return;
+      map.getSource('route-full').setData(routeFeature([from, pin]));
+    });
   }
 
-  function toggleRide() {
-    if (!route.length) { buildRoutePreview(); return; }
-    if (playing) {
-      playing = false;
-      shell.classList.remove('playing');
-      rideBtn.innerHTML = '<i class="fas fa-play me-1"></i> Resume';
-      if (engine) engine.gain.gain.setTargetAtTime(0, engine.ctx.currentTime, 0.12);
-      updateHud(performance.now(), true);
-      return;
-    }
-    if (arrived || progress >= total - 0.5) {
-      progress = 0;
-      arrived = false;
-      if (mapReady) map.getSource('route-progress').setData(routeFeature([route[0], route[0]]));
-    }
-    playing = true;
-    follow = true;
-    shell.classList.add('playing');
-    rideBtn.innerHTML = '<i class="fas fa-pause me-1"></i> Pause ride';
-    if (soundOn) startEngine();
-    startCameraIfNeeded();
-    updateHud(performance.now(), true);
-  }
-
-  const ARRIVAL_LINE = 'Hoy mango ari kana';
-  function speakArrival() {
-    if (!('speechSynthesis' in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(ARRIVAL_LINE);
-      const voices = speechSynthesis.getVoices();
-      const filipino = voices.find(function (x) {
-        return /^(fil|tl|ceb|war|hil)/i.test(x.lang) || /filipino|tagalog/i.test(x.name);
-      });
-      if (filipino) u.voice = filipino;
-      u.lang = filipino ? filipino.lang : 'fil-PH';
-      u.rate = 1.05;
-      u.pitch = 1.15;
-      u.volume = 1;
-      speechSynthesis.speak(u);
-    } catch (err) { }
-  }
-  if ('speechSynthesis' in window) {
-    speechSynthesis.getVoices();
-    speechSynthesis.onvoiceschanged = function () { speechSynthesis.getVoices(); };
-  }
-
-  function onArrive() {
-    arrived = true;
-    playing = false;
-    shell.classList.remove('playing');
-    speakArrival();
-    rideBtn.innerHTML = '<i class="fas fa-rotate-right me-1"></i> Walk Again';
-    if (engine) engine.gain.gain.setTargetAtTime(0, engine.ctx.currentTime, 0.2);
-    const b = currentBuilding();
-    const room = b.rooms.find(function (r) { return r.code === destRoom; });
-    showToast('Arrived: ' + destRoom + ' • ' + b.name + ' • ' + (room ? room.floor : ''), 5000);
-    updateHud(performance.now(), true);
-  }
-
-  function formatGps(acc) {
-    return 'GPS live' + (acc ? ' • ±' + Math.round(acc) + ' m' : '');
+  function updateTrackLine() {
+    if (!mapReady) return;
+    const coords = trail.map(function (p) { return [p.lng, p.lat]; });
+    const data = coords.length > 1
+      ? { type: 'Feature', geometry: { type: 'LineString', coordinates: coords } }
+      : { type: 'FeatureCollection', features: [] };
+    map.getSource('track-line').setData(data);
   }
 
   function circlePolygon(lat, lng, radius) {
@@ -839,12 +440,17 @@
   function updateLiveMarker() {
     if (!mapReady || !live.pos) return;
     if (!liveMarker) {
-      const el = document.createElement('div');
-      el.style.cssText = 'width:18px;height:18px;border-radius:50%;background:#38bdf8;border:3px solid #fff;box-shadow:0 0 0 6px rgba(56,189,248,.25),0 4px 12px rgba(0,0,0,.5);';
-      liveMarker = new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([live.pos[1], live.pos[0]]).addTo(map);
+      liveMarkerEl = document.createElement('div');
+      liveMarkerEl.className = 'live-marker';
+      liveMarkerEl.innerHTML = '<span class="live-ring"></span><span class="live-core"><i class="fas fa-location-arrow"></i></span>';
+      liveMarker = new maplibregl.Marker({ element: liveMarkerEl, anchor: 'center' })
+        .setLngLat([live.pos[1], live.pos[0]])
+        .addTo(map);
     } else {
       liveMarker.setLngLat([live.pos[1], live.pos[0]]);
     }
+    const core = liveMarkerEl.querySelector('.live-core');
+    if (core) core.style.setProperty('--heading', Math.round(live.heading || 0) + 'deg');
     const radius = Math.min(Math.max(live.acc || 25, 8), 400);
     map.getSource('accuracy').setData({
       type: 'Feature',
@@ -852,39 +458,234 @@
     });
   }
 
-  function startGpsTracking() {
-    if (!navigator.geolocation) {
-      showToast('GPS is not supported by this browser. Riding from the Main Gate.', 4200);
-      return;
+  function updateStats() {
+    speedVal.textContent = Math.round(speedSmooth * 3.6);
+    distVal.textContent = formatDist(totalDistance);
+    timeVal.textContent = formatDuration(currentElapsed());
+    const remaining = remainingToDest();
+    etaVal.textContent = remaining == null ? '—' : formatDist(remaining);
+    if (remaining != null && destRemainingStart > 0) {
+      const pct = Math.max(0, Math.min(100, (1 - remaining / destRemainingStart) * 100));
+      progressBar.style.width = pct.toFixed(1) + '%';
+    } else {
+      progressBar.style.width = '0%';
     }
-    if (live.on) {
-      startFromGps = true;
-      buildRoutePreview();
-      return;
+  }
+
+  function setTrackingUI(on) {
+    shell.classList.toggle('tracking', on);
+    trackBtn.classList.toggle('btn-stop', on);
+    trackBtn.innerHTML = on
+      ? '<i class="fas fa-stop me-1"></i> Stop Tracking'
+      : '<i class="fas fa-location-crosshairs me-1"></i> Start Tracking';
+    turnIcon.className = on ? 'fas fa-satellite-dish' : 'fas fa-location-crosshairs';
+  }
+
+  function centerOnMe(instant) {
+    if (!mapReady || !live.pos || !follow) return;
+    const target = {
+      center: [live.pos[1], live.pos[0]],
+      zoom: Math.max(map.getZoom(), 17.6),
+      bearing: 0,
+      pitch: 0
+    };
+    if (instant) map.jumpTo(target);
+    else map.easeTo(Object.assign({ duration: 850, essential: true }, target));
+  }
+
+  function onFix(pos) {
+    const c = pos.coords;
+    const point = { lat: c.latitude, lng: c.longitude, time: pos.timestamp || Date.now() };
+    const first = !live.pos;
+
+    let sp = (typeof c.speed === 'number' && isFinite(c.speed) && c.speed > 0) ? c.speed : 0;
+    if (prevFix) {
+      const dt = Math.max((point.time - prevFix.time) / 1000, 0.001);
+      const moved = haversine([prevFix.lat, prevFix.lng], [point.lat, point.lng]);
+      if (!sp && dt > 0.4 && dt < 30) sp = moved / dt;
+      live.heading = (typeof c.heading === 'number' && isFinite(c.heading))
+        ? c.heading
+        : bearing([prevFix.lat, prevFix.lng], [point.lat, point.lng]);
     }
-    gpsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> GPS';
-    live.watchId = navigator.geolocation.watchPosition(function (pos) {
-      const first = !live.on;
-      live.on = true;
-      live.pos = [pos.coords.latitude, pos.coords.longitude];
-      live.acc = pos.coords.accuracy;
-      startFromGps = true;
-      gpsBtn.classList.add('active');
-      gpsBtn.innerHTML = '<i class="fas fa-location-crosshairs"></i> GPS';
-      gpsStatus.classList.remove('d-none');
-      gpsStatusText.textContent = formatGps(live.acc);
-      liveBadge.classList.add('show');
-      updateLiveMarker();
-      if (first) {
-        showToast('GPS locked — routing from your live position.', 3800);
-        buildRoutePreview();
+    speedSmooth = speedSmooth ? speedSmooth * 0.65 + sp * 0.35 : sp;
+    if (speedSmooth < 0.25) speedSmooth = 0;
+
+    live.pos = [point.lat, point.lng];
+    live.acc = c.accuracy;
+    live.alt = c.altitude;
+    live.speed = speedSmooth;
+
+    if (!lastTrailPoint) {
+      trail.push(point);
+      lastTrailPoint = point;
+    } else {
+      const step = haversine([lastTrailPoint.lat, lastTrailPoint.lng], [point.lat, point.lng]);
+      if (step >= 2) {
+        totalDistance += step;
+        trail.push(point);
+        lastTrailPoint = point;
       }
-    }, function (err) {
-      live.on = false;
-      gpsBtn.classList.remove('active');
-      gpsBtn.innerHTML = '<i class="fas fa-location-crosshairs"></i> GPS';
-      showToast(err.code === 1 ? 'Location permission denied — riding from the Main Gate.' : 'GPS unavailable — riding from the Main Gate.', 4200);
-    }, { enableHighAccuracy: true, maximumAge: 3000, timeout: 15000 });
+    }
+    prevFix = point;
+
+    gpsStatus.classList.remove('d-none');
+    gpsStatusText.textContent = (watching ? 'Tracking' : 'Last fix') + (live.acc ? ' • ±' + Math.round(live.acc) + ' m' : '');
+    liveBadge.classList.add('show');
+    coordsText.textContent = point.lat.toFixed(6) + ', ' + point.lng.toFixed(6);
+    accText.textContent = live.acc ? '±' + Math.round(live.acc) + ' m accuracy' : 'Accuracy —';
+    altText.textContent = (typeof live.alt === 'number' && isFinite(live.alt)) ? Math.round(live.alt) + ' m alt' : 'Alt —';
+
+    if (watching && !destRemainingStart) {
+      const remaining = remainingToDest();
+      if (remaining != null) destRemainingStart = remaining;
+    }
+    if (watching && (first || Date.now() - lastRouteAt > 45000)) refreshDestRoute();
+
+    updateLiveMarker();
+    updateTrackLine();
+    updateStats();
+    centerOnMe(first);
+
+    if (first) showToast('GPS locked — live tracking is on.', 3200);
+  }
+
+  function stopWatch() {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    watching = false;
+    if (sessionStart) {
+      elapsedMs += Date.now() - sessionStart;
+      sessionStart = 0;
+    }
+    setTrackingUI(false);
+    updateStats();
+  }
+
+  function onGpsError(err) {
+    if (err.code === err.TIMEOUT && watching) {
+      showToast('GPS is taking longer than usual…', 3000);
+      return;
+    }
+    stopWatch();
+    gpsStatusText.textContent = 'GPS unavailable';
+    let msg = 'GPS unavailable. Try again in an open area.';
+    if (err.code === err.PERMISSION_DENIED) msg = 'Location permission denied — allow location access to use the tracker.';
+    showToast(msg, 4800);
+  }
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      showToast('GPS is not supported by this browser.', 4200);
+      return;
+    }
+    if (!sessionStart) sessionStart = Date.now();
+    prevFix = null;
+    speedSmooth = 0;
+    watching = true;
+    setTrackingUI(true);
+    gpsStatus.classList.remove('d-none');
+    gpsStatusText.textContent = 'Locating…';
+    trackBtn.disabled = true;
+    watchId = navigator.geolocation.watchPosition(onFix, onGpsError, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 20000
+    });
+    setTimeout(function () { trackBtn.disabled = false; }, 1200);
+    showToast('Requesting GPS lock…', 2400);
+  }
+
+  function toggleTracking() {
+    if (watching) {
+      stopWatch();
+      showToast('Tracking stopped — ' + formatDist(totalDistance) + ' recorded.', 3400);
+    } else {
+      startTracking();
+    }
+  }
+
+  function onDestinationChanged() {
+    routeToken++;
+    destRemainingStart = 0;
+    lastRouteAt = 0;
+    if (mapReady) {
+      map.getSource('route-full').setData({ type: 'FeatureCollection', features: [] });
+    }
+    updateStats();
+    if (live.pos) refreshDestRoute();
+  }
+
+  function clearTrack() {
+    trail = [];
+    totalDistance = 0;
+    speedSmooth = 0;
+    prevFix = null;
+    lastTrailPoint = null;
+    elapsedMs = 0;
+    sessionStart = watching ? Date.now() : 0;
+    destRemainingStart = 0;
+    updateTrackLine();
+    updateStats();
+    showToast('Recorded trail cleared.', 2400);
+  }
+
+  function locationPayload(prefix) {
+    const lat = live.pos[0];
+    const lng = live.pos[1];
+    const mapUrl = 'https://www.google.com/maps?q=' + lat.toFixed(6) + ',' + lng.toFixed(6);
+    const text = prefix + ' My live location: ' + lat.toFixed(6) + ', ' + lng.toFixed(6) +
+      (live.acc ? ' (accuracy ±' + Math.round(live.acc) + ' m)' : '') + '. ' + mapUrl;
+    return { mapUrl: mapUrl, text: text };
+  }
+
+  function shareLocation(prefix) {
+    if (!live.pos) {
+      showToast('No GPS fix yet — start tracking first.', 3200);
+      return;
+    }
+    const payload = locationPayload(prefix);
+    if (navigator.share) {
+      navigator.share({ title: 'My live location', text: payload.text, url: payload.mapUrl })
+        .catch(function () { copyLocation(payload); });
+      return;
+    }
+    copyLocation(payload);
+  }
+
+  function copyLocation(payload) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(payload.text).then(function () {
+        showToast('Live location copied to clipboard.', 3000);
+      }).catch(function () {
+        showToast(payload.text, 6000);
+      });
+      return;
+    }
+    showToast(payload.text, 6000);
+  }
+
+  function exportGpx() {
+    if (trail.length < 2) {
+      showToast('Start tracking to record a route first.', 3200);
+      return;
+    }
+    const pts = trail.map(function (p) {
+      return '<trkpt lat="' + p.lat.toFixed(7) + '" lon="' + p.lng.toFixed(7) + '">' +
+        '<time>' + new Date(p.time).toISOString() + '</time></trkpt>';
+    }).join('');
+    const gpx = '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<gpx version="1.1" creator="FindEd Real Time GPS Tracker" xmlns="http://www.topografix.com/GPX/1/1">' +
+      '<trk><name>FindEd track ' + new Date().toISOString() + '</name><trkseg>' + pts + '</trkseg></trk></gpx>';
+    const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'findEd-track-' + Date.now() + '.gpx';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    showToast('Track exported as GPX.', 2600);
   }
 
   /* ---------------- map ---------------- */
@@ -900,10 +701,10 @@
       },
       streets: {
         type: 'raster',
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tiles: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
-        maxzoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
+        maxzoom: 17,
+        attribution: '&copy; OpenTopoMap (CC-BY-SA)'
       }
     },
     layers: [
@@ -917,19 +718,20 @@
     style: style,
     center: [GATE[1], GATE[0]],
     zoom: 18.1,
-    pitch: 58,
+    pitch: 0,
     bearing: 0,
     attributionControl: false,
-    antialias: true,
-    maxPitch: 75
+    antialias: true
   });
 
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
   map.addControl(new maplibregl.AttributionControl({ compact: true }));
 
   map.on('dragstart', function () {
+    if (!follow) return;
     follow = false;
-    showToast('Follow paused — tap the map to re-center.', 2200);
+    followBtn.classList.remove('active');
+    showToast('Follow paused — tap the map or Follow to re-center.', 2400);
   });
 
   map.on('load', function () {
@@ -943,7 +745,7 @@
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] }
     });
-    map.addSource('route-progress', {
+    map.addSource('track-line', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] }
     });
@@ -975,134 +777,40 @@
       paint: { 'line-color': '#ff7a00', 'line-width': 6, 'line-opacity': 0.9 }
     });
     map.addLayer({
-      id: 'route-progress',
+      id: 'track-casing',
       type: 'line',
-      source: 'route-progress',
+      source: 'track-line',
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': '#ffffff', 'line-width': 3.2, 'line-opacity': 0.95 }
+      paint: { 'line-color': '#082f49', 'line-width': 10, 'line-opacity': 0.6 }
     });
-
-    const gateEl = document.createElement('div');
-    gateEl.className = 'gate-marker';
-    gateEl.textContent = 'MAIN GATE';
-    gateMarker = new maplibregl.Marker({ element: gateEl, anchor: 'right', offset: [-26, 0] })
-      .setLngLat([GATE[1], GATE[0]])
-      .addTo(map);
+    map.addLayer({
+      id: 'track-path',
+      type: 'line',
+      source: 'track-line',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': '#38bdf8', 'line-width': 5, 'line-opacity': 0.95 }
+    });
 
     destMarkerEl = document.createElement('div');
     destMarkerEl.className = 'dest-marker';
     destMarkerEl.innerHTML = '<div class="pin"><i class="fas fa-flag-checkered"></i></div><div class="tag">DESTINATION</div>';
-    destMarker = new maplibregl.Marker({ element: destMarkerEl, anchor: 'bottom' }).setLngLat([GATE[1], GATE[0]]).addTo(map);
-
-    const bikeEl = document.createElement('div');
-    bikeEl.className = 'bike-marker';
-    bikeEl.innerHTML = '<div class="ring"></div><div class="bike-icon">' +
-      '<svg viewBox="0 0 40 40" aria-hidden="true">' +
-      '<g class="walker2">' +
-      '<g class="leg leg-back">' +
-      '<rect x="18.8" y="23.8" width="3.4" height="7.4" fill="#3a465e"/>' +
-      '<g class="shin shin-back">' +
-      '<rect x="18.8" y="30.6" width="3.4" height="6.4" fill="#3a465e"/>' +
-      '<rect x="18.8" y="36.4" width="6" height="2.2" fill="#161b24"/>' +
-      '</g></g>' +
-      '<g class="leg leg-front">' +
-      '<rect x="21.4" y="23.8" width="3.6" height="7.4" fill="#4d5b78"/>' +
-      '<g class="shin shin-front">' +
-      '<rect x="21.4" y="30.6" width="3.6" height="6.4" fill="#4d5b78"/>' +
-      '<rect x="21.4" y="36.4" width="6.4" height="2.2" fill="#1a1f29"/>' +
-      '</g></g>' +
-      '<g class="body-bob">' +
-      '<g class="arm arm-back">' +
-      '<rect x="19.2" y="14.6" width="2.8" height="6.6" fill="#4a5875"/>' +
-      '<g class="forearm forearm-back">' +
-      '<rect x="19.2" y="20.7" width="2.8" height="5.6" fill="#4a5875"/>' +
-      '<rect x="19.2" y="25.8" width="2.8" height="2.4" fill="#e8b48c"/>' +
-      '</g></g>' +
-      '<rect x="18.4" y="12.8" width="8.8" height="12.4" rx="1.6" fill="#6b7a99"/>' +
-      '<rect x="22" y="12.8" width="2.2" height="5.4" fill="#e8eef8"/>' +
-      '<rect x="22.9" y="15.5" width="1" height="4.8" fill="#ff7a00"/>' +
-      '<g class="arm arm-front">' +
-      '<rect x="24" y="14.6" width="3" height="6.6" fill="#7b8baa"/>' +
-      '<g class="forearm forearm-front">' +
-      '<rect x="24" y="20.7" width="3" height="5.6" fill="#7b8baa"/>' +
-      '<rect x="24" y="25.8" width="3" height="2.4" fill="#f2c39d"/>' +
-      '</g></g>' +
-      '<rect x="21.2" y="6.6" width="6.2" height="6.4" fill="#f2c39d"/>' +
-      '<rect x="20.2" y="4" width="7.4" height="3.2" fill="#2a303c"/>' +
-      '<rect x="25.6" y="6.6" width="1.8" height="2.4" fill="#2a303c"/>' +
-      '<rect x="25.4" y="8.6" width="1" height="1" fill="#20242e"/>' +
-      '<rect x="22.2" y="12.4" width="3.2" height="1.6" fill="#e8b48c"/>' +
-      '</g>' +
-      '</g>' +
-      '</svg></div>';
-    bikeMarker = new maplibregl.Marker({ element: bikeEl, anchor: 'center' }).setLngLat([GATE[1], GATE[0]]).addTo(map);
-    bikeIconEl = bikeEl.querySelector('.bike-icon');
+    destMarker = new maplibregl.Marker({ element: destMarkerEl, anchor: 'bottom' })
+      .setLngLat([GATE[1], GATE[0]])
+      .addTo(map);
 
     positionDestMarker();
-    updateLiveMarker();
-    buildRoutePreview();
-    startCameraIfNeeded();
+    updateTrackLine();
+    updateStats();
   });
 
   function positionDestMarker() {
     if (!destMarker) return;
-    const pin = PINS[destBuilding];
+    const pin = destPin();
     if (!pin) return;
     destMarker.setLngLat([pin[1], pin[0]]);
     const tag = destMarkerEl.querySelector('.tag');
     const b = currentBuilding();
     if (tag) tag.textContent = b.short + ' • ' + destRoom;
-  }
-
-  /* ---------------- engine sound ---------------- */
-  function ensureAudio() {
-    if (engine) return engine;
-    const AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return null;
-    const ctx = new AC();
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    gain.connect(ctx.destination);
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.value = 420;
-    filter.Q.value = 1.5;
-    filter.connect(gain);
-    const o1 = ctx.createOscillator();
-    o1.type = 'sawtooth';
-    o1.frequency.value = 55;
-    o1.connect(filter);
-    const o2 = ctx.createOscillator();
-    o2.type = 'square';
-    o2.frequency.value = 28;
-    const g2 = ctx.createGain();
-    g2.gain.value = 0.3;
-    o2.connect(g2);
-    g2.connect(filter);
-    o1.start();
-    o2.start();
-    engine = { ctx: ctx, gain: gain, filter: filter, o1: o1, o2: o2 };
-    return engine;
-  }
-
-  function startEngine() {
-    const e = ensureAudio();
-    if (!e) return;
-    if (e.ctx.state === 'suspended') e.ctx.resume();
-    e.gain.gain.setTargetAtTime(0.045, e.ctx.currentTime, 0.2);
-  }
-
-  function engineTick() {
-    if (!engine || !soundOn || !playing) {
-      if (engine) engine.gain.gain.setTargetAtTime(0, engine.ctx.currentTime, 0.15);
-      return;
-    }
-    if (engine.ctx.state === 'suspended') engine.ctx.resume();
-    const kmh = BASE_SPEED * mult * 3.6;
-    engine.o1.frequency.setTargetAtTime(48 + kmh * 1.05, engine.ctx.currentTime, 0.18);
-    engine.o2.frequency.setTargetAtTime(24 + kmh * 0.55, engine.ctx.currentTime, 0.18);
-    engine.filter.frequency.setTargetAtTime(340 + kmh * 8, engine.ctx.currentTime, 0.18);
-    engine.gain.gain.setTargetAtTime(0.045, engine.ctx.currentTime, 0.18);
   }
 
   /* ---------------- events ---------------- */
@@ -1115,7 +823,7 @@
       destRoom = roomSel.value;
       updateDestLabel();
       positionDestMarker();
-      resetRide();
+      onDestinationChanged();
     }
   });
 
@@ -1125,7 +833,8 @@
     fillRooms(destBuilding);
     destRoom = roomSel.value;
     updateDestLabel();
-    resetRide();
+    positionDestMarker();
+    onDestinationChanged();
   });
 
   roomSel.addEventListener('change', function () {
@@ -1133,44 +842,26 @@
     destRoom = roomSel.value;
     updateDestLabel();
     positionDestMarker();
-    updateHud(performance.now(), true);
+    onDestinationChanged();
   });
 
-  rideBtn.addEventListener('click', toggleRide);
-  resetBtn.addEventListener('click', resetRide);
+  trackBtn.addEventListener('click', toggleTracking);
+  sosBtn.addEventListener('click', function () { shareLocation('SOS — I need help.'); });
+  shareBtn.addEventListener('click', function () { shareLocation('Tracking live.'); });
+  gpxBtn.addEventListener('click', exportGpx);
+  clearBtn.addEventListener('click', clearTrack);
 
-  gpsBtn.addEventListener('click', startGpsTracking);
-
-  povBtn.addEventListener('click', function () {
-    pov = !pov;
-    shell.classList.toggle('pov', pov);
-    povBtn.classList.toggle('active', pov);
-    if (pov) {
-      startCamera();
-      showToast('Walking POV on — follow the little walker.', 2200);
+  followBtn.addEventListener('click', function () {
+    follow = !follow;
+    followBtn.classList.toggle('active', follow);
+    if (follow) {
+      centerOnMe(false);
+      showToast('Following your live position.', 2000);
     } else {
-      follow = true;
-      const p = pointAt(progress);
-      if (p) map.jumpTo({ center: [p.lng, p.lat], pitch: 0, bearing: 0, zoom: 18.1 });
-      updateBike();
+      showToast('Follow off — drag the map freely.', 2000);
     }
   });
 
-  speedBtn.addEventListener('click', function () {
-    mult = mult === 1 ? 2 : mult === 2 ? 4 : mult === 4 ? 8 : 1;
-    speedBtn.innerHTML = '<i class="fas fa-gauge-high"></i> ' + mult + 'x';
-    showToast('Ride speed ' + mult + 'x — ' + Math.round(BASE_SPEED * mult * 3.6) + ' km/h', 2200);
-    updateHud(performance.now(), true);
-  });
-
-  overviewBtn.addEventListener('click', function () {
-    playing = false;
-    shell.classList.remove('playing');
-    rideBtn.innerHTML = '<i class="fas fa-play me-1"></i> Resume';
-    overview(true);
-  });
-
-  let satellite = true;
   layerBtn.addEventListener('click', function () {
     if (!mapReady) return;
     satellite = !satellite;
@@ -1180,49 +871,20 @@
     showToast(satellite ? 'Satellite view' : 'Street map view', 1600);
   });
 
-  soundBtn.addEventListener('click', function () {
-    soundOn = !soundOn;
-    soundBtn.classList.toggle('active', soundOn);
-    soundBtn.innerHTML = soundOn ? '<i class="fas fa-volume-high"></i>' : '<i class="fas fa-volume-xmark"></i>';
-    if (soundOn) {
-      startEngine();
-      showToast('Engine sound on — vroom.', 1800);
-    } else if (engine) {
-      engine.gain.gain.setTargetAtTime(0, engine.ctx.currentTime, 0.15);
-    }
-  });
-
   map.on('click', function () {
     if (follow) return;
     follow = true;
-    startCameraIfNeeded();
+    followBtn.classList.add('active');
+    centerOnMe(false);
   });
 
-  function frame(now) {
-    const dt = Math.min((now - lastFrame) / 1000, 0.08);
-    lastFrame = now;
+  setInterval(function () {
+    if (watching) updateStats();
+  }, 1000);
 
-    if (playing && total > 0) {
-      progress += BASE_SPEED * mult * dt;
-      if (progress >= total) {
-        progress = total;
-        updateBike();
-        updateProgressLine();
-        updateHud(now, true);
-        if (follow) updateCamera(dt);
-        onArrive();
-      } else {
-        updateBike();
-        updateProgressLine();
-        if (follow) updateCamera(dt);
-      }
-    }
-
-    updateHud(now, false);
-    engineTick();
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
+  window.addEventListener('beforeunload', function () {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  });
 })();
 </script>
 {% endblock %}

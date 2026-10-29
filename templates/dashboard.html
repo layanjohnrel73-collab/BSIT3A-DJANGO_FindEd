@@ -46,7 +46,7 @@
       <a class="chip" href="{% url 'dashboard' %}?q=IT302">IT302</a>
       <a class="chip" href="{% url 'dashboard' %}?q=CMAT+104">CMAT 104</a>
     </div>
-    <a href="{% url 'ride' %}" class="btn btn-primary mt-3"><i class="fas fa-walking me-1"></i> Walk to my classroom</a>
+    <a href="{% url 'ride' %}" class="btn btn-primary mt-3"><i class="fas fa-satellite-dish me-1"></i> Real Time GPS Tracker</a>
   </div>
 
   {% if result %}
@@ -86,7 +86,7 @@
             <td class="text-nowrap">{{ s.time }}</td>
             <td><b>{{ s.code }}</b> <span class="text-muted small">{{ s.title }}</span></td>
             <td><a class="room-link" href="{% url 'dashboard' %}?q={{ s.room|urlencode }}">{{ s.room }}</a></td>
-            <td class="text-end"><a class="walk-link" href="{% url 'ride' %}?subject={{ s.code|urlencode }}" title="Walk to {{ s.room }}"><i class="fas fa-walking"></i> Walk</a></td>
+            <td class="text-end"><a class="walk-link" href="{% url 'ride' %}?subject={{ s.code|urlencode }}" title="Track your way to {{ s.room }}"><i class="fas fa-satellite-dish"></i> Track</a></td>
           </tr>
         {% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No classes. <a href="{% url 'dashboard' %}">Clear</a></td></tr>{% endfor %}
         </tbody>

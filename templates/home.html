@@ -1,322 +1,365 @@
 {% extends "theme/base.html" %}
 {% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+{% endblock %}
 {% block content %}
-{{ buildings|json_script:"campus-data" }}
-{{ subjects|json_script:"subject-data" }}
+{{ gate|json_script:"kcc-gate" }}
 <style>
-  .finded-header { display:flex; flex-wrap:wrap; gap:.75rem; align-items:end; justify-content:space-between; }
-  .photo-wrap { position:relative; border-radius:14px; overflow:hidden; border:1px solid var(--tblr-border-color);
-    box-shadow: var(--tblr-shadow-card); }
-  .photo-wrap img { display:block; width:100%; height:auto; }
-  #route-svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
-  #route-line { fill:none; stroke:#2563eb; stroke-width:6; stroke-linecap:round; stroke-linejoin:round;
-    stroke-dasharray:14 10; animation:march 1s linear infinite; filter:drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
-  @keyframes march { to { stroke-dashoffset:-24; } }
-  .pin { position:absolute; width:0; height:0; z-index:5; }
-  .pin .dot { position:absolute; left:-7px; top:-7px; width:14px; height:14px; border-radius:50%;
-    background:#4f46e5; border:3px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.5); }
-  .pin.sel .dot { background:#f8b84e; animation:ping 1.4s ease-out infinite; }
-  .pin.sel .kcc-pin { background:#f8b84e !important; color:#222 !important; }
-  @keyframes ping { 0%{box-shadow:0 0 0 0 rgba(248,184,78,.8);} 100%{box-shadow:0 0 0 16px rgba(248,184,78,0);} }
-  .pin .tag { position:absolute; bottom:12px; left:0; transform:translateX(-50%); }
-  .kcc-pin { display:inline-block; padding:.3rem .6rem; border-radius:999px; font-weight:800; font-size:12px;
-    color:#fff; background:#4b5563; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.4);
-    white-space:nowrap; cursor:pointer; }
-  .kcc-pin.t-classroom { background:#4f46e5; }
-  .kcc-pin.t-office { background:#4b5563; }
-  .kcc-pin.t-faith { background:#b45309; }
-  .kcc-pin.t-assembly { background:#047857; }
-  .kcc-pin.sel { background:#f8b84e !important; color:#222 !important; transform:scale(1.15); }
-  .kcc-you { display:inline-block; padding:.3rem .6rem; border-radius:999px; font-weight:800; font-size:12px;
-    color:#fff; background:#2563eb; border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.4); white-space:nowrap; }
-  .room-row { display:flex; justify-content:space-between; gap:.5rem; padding:.55rem .75rem; border-bottom:1px solid var(--tblr-border-color); cursor:pointer; }
-  .room-row:last-child { border-bottom:0; }
-  .room-row:hover, .room-row.selected { background:rgba(var(--tblr-primary-rgb),.08); }
-  .room-row.selected { border-left:4px solid #f8b84e; background:#fff7e0; }
-  .legend-dot { width:.8rem; height:.8rem; border-radius:.25rem; display:inline-block; }
-  #search-results { position:absolute; z-index:20; top:100%; left:0; right:0; background:var(--tblr-bg-surface);
-    border:1px solid var(--tblr-border-color); border-radius:0 0 12px 12px; max-height:280px; overflow:auto;
-    box-shadow:var(--tblr-shadow-card); }
-  #search-results button { display:block; width:100%; text-align:left; border:0; background:none; padding:.6rem .8rem; }
-  #search-results button:hover { background:rgba(var(--tblr-primary-rgb),.08); }
-  .step-num { width:1.7rem; height:1.7rem; border-radius:50%; background:var(--tblr-primary); color:#fff;
-    display:inline-flex; align-items:center; justify-content:center; font-weight:800; flex-shrink:0; }
-  .subject-pin { position:absolute; z-index:6; transform:translate(-50%,0); }
-  .subject-pin button { border:1.5px solid #fff; background:#ea580c; color:#fff; font-size:9.5px; font-weight:800;
-    border-radius:999px; padding:2px 6px; white-space:nowrap; box-shadow:0 2px 6px rgba(0,0,0,.45); line-height:1.2; }
-  .subject-pin button:hover, .subject-pin button.sel { background:#f8b84e; color:#111; }
-  .subject-chip { display:flex; align-items:center; gap:.4rem; background:var(--tblr-bg-surface); color:var(--tblr-body-color);
-    border:1px solid var(--tblr-border-color); border-radius:999px; padding:.3rem .7rem; font-size:.82rem; }
-  .subject-chip:hover, .subject-chip.sel { border-color:#ea580c; background:rgba(234,88,12,.08); }
-  .subject-chip b { color:#ea580c; }
-  .subject-chip span { color:var(--tblr-muted); }
+  .gps-finder { max-width: 760px; margin: 0 auto; background: #050607; border-radius: 22px; overflow: hidden;
+    border: 1px solid rgba(15,23,42,.25); box-shadow: 0 24px 70px rgba(15,23,42,.28); color: #f8fafc; }
+  .gps-appbar { display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px;
+    padding: 12px 14px; background: #050607; }
+  .gps-title { text-align: center; font-size: 16px; font-weight: 800; letter-spacing: -.01em; }
+  .gps-icon-btn { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center;
+    justify-content: center; color: #e2e8f0; background: transparent; border: 0; text-decoration: none; }
+  .gps-icon-btn:hover { background: rgba(255,255,255,.1); color: #fff; }
+  .gps-actions { display: flex; gap: 8px; padding: 0 14px 12px; background: #050607; }
+  .gps-action { flex: 1; min-height: 48px; border-radius: 10px; border: 1px solid #30343a; background: #1b1e22;
+    color: #e5e7eb; font-size: 14px; font-weight: 800; letter-spacing: .06em; display: flex; align-items: center;
+    justify-content: center; gap: 8px; }
+  .gps-action.start { background: #24272b; }
+  .gps-action.stop { background: #ef4444; border-color: #ef4444; color: #fff; }
+  .gps-action.icon { flex: 0 0 52px; }
+  .gps-action:disabled { opacity: .42; cursor: not-allowed; }
+  .gps-action:not(:disabled):hover { filter: brightness(1.08); }
+  .gps-map-wrap { position: relative; background: #e5e7eb; }
+  #gps-map { width: 100%; height: clamp(430px, 64vh, 620px); }
+  .gps-map-controls { position: absolute; top: 12px; right: 12px; z-index: 5; display: flex; flex-direction: column; gap: 8px; }
+  .gps-map-controls button { width: 42px; height: 42px; border-radius: 50%; background: rgba(18,20,23,.92);
+    color: #fff; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 6px 16px rgba(0,0,0,.25);
+    display: flex; align-items: center; justify-content: center; font-size: 15px; backdrop-filter: blur(8px); }
+  .gps-map-controls button:hover { background: #25282d; }
+  .gps-map-controls button.active { background: #2563eb; border-color: #60a5fa; }
+  .gps-status { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 5; display: flex;
+    align-items: center; gap: 10px; padding: 10px 12px; background: rgba(5,6,7,.94);
+    border: 1px solid rgba(255,255,255,.14); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    backdrop-filter: blur(10px); }
+  .gps-status .status-icon { width: 26px; height: 26px; border-radius: 50%; background: #2563eb; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 12px; flex: 0 0 26px; }
+  .gps-status .status-text { flex: 1; font-size: 13px; line-height: 1.25; color: #e5e7eb; }
+  .gps-status .status-text small { display: block; margin-top: 2px; color: #94a3b8; font-size: 11px; }
+  .gps-status .status-target { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,.2);
+    background: rgba(255,255,255,.06); color: #fff; display: flex; align-items: center; justify-content: center;
+    flex: 0 0 36px; }
+  .gps-status .status-target:hover { background: rgba(255,255,255,.14); }
+  .gps-dot { position: relative; width: 24px; height: 24px; border-radius: 50%; background: #2563eb;
+    border: 3px solid #fff; box-shadow: 0 0 0 8px rgba(37,99,235,.25), 0 8px 20px rgba(0,0,0,.35); }
+  .gps-dot::after { content: ""; position: absolute; inset: -10px; border-radius: 50%;
+    border: 2px solid rgba(37,99,235,.55); animation: gpsPulse 2s ease-out infinite; }
+  @keyframes gpsPulse { 0% { transform: scale(.7); opacity: .9; } 100% { transform: scale(1.8); opacity: 0; } }
+  .gps-toast { position: absolute; left: 50%; bottom: 80px; z-index: 6; transform: translate(-50%, 8px);
+    background: rgba(8,10,12,.95); border: 1px solid rgba(255,255,255,.16); color: #fff; font-size: 12px;
+    font-weight: 700; padding: 8px 14px; border-radius: 999px; opacity: 0; pointer-events: none;
+    transition: .2s; white-space: nowrap; max-width: calc(100% - 32px); overflow: hidden; text-overflow: ellipsis; }
+  .gps-toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .maplibregl-ctrl-attrib { font-size: 10px !important; background: rgba(8,10,12,.72) !important; color: #cbd5e1 !important; }
+  .maplibregl-ctrl-attrib a { color: #93c5fd !important; }
+  @media (max-width: 575.98px) {
+    .gps-finder { margin: 0 -.75rem; border-radius: 0; }
+    #gps-map { height: calc(100vh - 260px); min-height: 420px; }
+  }
 </style>
 
-<div class="finded-header mb-3">
-  <div>
-    <div class="page-pretitle">FindEd • Kabankalan Catholic College</div>
-    <h2 class="page-title mb-1">Where is my classroom?</h2>
-    <div class="text-muted">Real aerial photo of KCC, Guanzon St. — type your room and follow the blue route from the Main Gate.</div>
-  </div>
-  <div class="d-flex flex-wrap gap-2 align-items-center">
-    <a href="{% url 'ride' %}" class="btn btn-warning"><i class="fas fa-walking me-1"></i> Walk Mode</a>
-    <span class="badge bg-green-lt text-green">No login needed • Guide mode</span>
-  </div>
-</div>
-
-<!-- SEARCH -->
-<div class="card mb-3">
-  <div class="card-body">
-    <div class="position-relative">
-      <div class="input-group input-group-lg">
-        <span class="input-group-text"><i class="fas fa-magnifying-glass"></i></span>
-        <input id="room-search" type="text" class="form-control" placeholder="Find classroom… try BSIT 3-A, STEM 11-A, BEED 1-A…" autocomplete="off">
-        <button class="btn btn-outline-secondary" id="clear-search" type="button">Clear</button>
-      </div>
-      <div id="search-results" class="d-none"></div>
-    </div>
-    <div class="mt-2 d-flex flex-wrap gap-2 small">
-      <span class="text-muted">Popular:</span>
-      <button class="btn btn-sm btn-outline-primary" data-room="BSIT 3-A">BSIT 3-A</button>
-      <button class="btn btn-sm btn-outline-primary" data-room="Grade 7-A">Grade 7-A</button>
-      <button class="btn btn-sm btn-outline-primary" data-room="STEM 11-A">STEM 11-A</button>
-      <button class="btn btn-sm btn-outline-primary" data-room="Grade 4-A">Grade 4-A</button>
-      <button class="btn btn-sm btn-outline-primary" data-room="Main Sanctuary">Chapel</button>
-    </div>
-  </div>
-</div>
-
-<!-- SUBJECTS ON THE MAP -->
-<div class="card mb-3">
-  <div class="card-body">
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-      <h3 class="card-title mb-0"><i class="fas fa-walking me-1" style="color:#ea580c"></i> Subjects on the KCC map</h3>
-      <span class="text-muted small">Tap a subject to show your room</span>
-    </div>
-    <div class="d-flex flex-wrap gap-2" id="subject-chips"></div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-12 col-lg-8">
-    <div class="card">
-      <div class="card-body p-2 p-md-3">
-        <div class="photo-wrap">
-          <img src="{% static 'img/kcc-aerial.jpg' %}" alt="Real aerial photo of Kabankalan Catholic College"/>
-          <svg id="route-svg" viewBox="0 0 768 768" preserveAspectRatio="none"><polyline id="route-line" points=""/></svg>
-          <div id="pins"></div>
-          <div class="map-badge">● REAL PHOTO • KCC CAMPUS • GUANZON ST.</div>
-        </div>
-        <div class="d-flex flex-wrap gap-3 mt-2 small text-muted px-1">
-          <span><span class="legend-dot" style="background:#2563eb"></span> Blue line = walk from Main Gate</span>
-          <span><span class="legend-dot" style="background:#f8b84e"></span> Pulsing gold dot = your building</span>
-        </div>
-      </div>
-    </div>
+<div class="gps-finder">
+  <div class="gps-appbar">
+    <a href="{% url 'dashboard' %}" class="gps-icon-btn" aria-label="Back to dashboard"><i class="fas fa-bars"></i></a>
+    <div class="gps-title">Real Time GPS Tracker</div>
+    <button id="gps-share-top" class="gps-icon-btn" type="button" aria-label="Share location"><i class="fas fa-share-nodes"></i></button>
   </div>
 
-  <div class="col-12 col-lg-4">
-    <div class="card h-100">
-      <div class="card-header">
-        <h3 class="card-title" id="guide-title">Guide</h3>
-        <div class="text-muted small" id="guide-sub">Search above or tap a pin</div>
-      </div>
-      <div class="card-body">
-        <div id="guide-empty" class="text-muted">Try <b>BSIT 3-A</b> — I'll show you exactly where to go.</div>
-        <div id="guide-detail" class="d-none">
-          <div class="alert alert-warning py-2"><b id="room-name"></b><div class="small" id="room-meta"></div></div>
-          <div class="d-flex flex-column gap-2" id="steps"></div>
-          <a id="gmaps-link" class="btn btn-outline-primary mt-2" target="_blank" rel="noopener">
-            <i class="fas fa-diamond-turn-right me-1"></i> Navigate with Google Maps
-          </a>
-          <h4 class="mt-3 mb-1">All rooms here <span class="text-muted fw-normal" id="room-count"></span></h4>
-          <div class="border rounded" id="room-list"></div>
-        </div>
-      </div>
-      <div class="card-footer text-muted small">FindEd • Real KCC pins: HS + chapel, Elem + canteen, Arts Center + annex • Tell me corrections.</div>
+  <div class="gps-actions">
+    <button id="gps-start" class="gps-action start" type="button"><i class="fas fa-play"></i> START</button>
+    <button id="gps-stop" class="gps-action stop" type="button" disabled><i class="fas fa-stop"></i> STOP</button>
+    <button id="gps-share" class="gps-action icon" type="button" aria-label="Share location"><i class="fas fa-share-nodes"></i></button>
+  </div>
+
+  <div class="gps-map-wrap">
+    <div id="gps-map"></div>
+
+    <div class="gps-map-controls">
+      <button id="gps-layers" type="button" title="Map layers" aria-label="Map layers"><i class="fas fa-layer-group"></i></button>
+      <button id="gps-compass" type="button" title="Reset compass" aria-label="Reset compass"><i class="fas fa-compass"></i></button>
+      <button id="gps-recenter" type="button" title="Recenter" aria-label="Recenter"><i class="fas fa-location-crosshairs"></i></button>
     </div>
+
+    <div class="gps-status">
+      <span class="status-icon" id="gps-status-icon"><i class="fas fa-circle-info"></i></span>
+      <span class="status-text" id="gps-status-text">Lost GPS signal. Getting LBS data<small id="gps-status-sub">Showing KCC campus until GPS is available.</small></span>
+      <button class="status-target" id="gps-status-recenter" type="button" aria-label="Recenter map"><i class="fas fa-location-crosshairs"></i></button>
+    </div>
+
+    <div class="gps-toast" id="gps-toast"></div>
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script>
-(function(){
-  const buildings = JSON.parse(document.getElementById('campus-data').textContent);
-  const subjects = JSON.parse(document.getElementById('subject-data').textContent);
-  const byId = Object.fromEntries(buildings.map(b=>[b.id,b]));
-  // Real KCC anchor (OpenStreetMap): Guanzon St., Brgy. 1, Kabankalan City.
-  // Photo = 3x3 satellite tiles @z19, top-left tile (441005, 247508).
-  const Z=19, N=Math.pow(2,Z), X0=441005, Y0=247508, S=768;
-  function toXY(lat,lon){
-    const x=(lon+180)/360*N;
-    const lr=lat*Math.PI/180;
-    const y=(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*N;
-    return [(x-X0)*256, (y-Y0)*256];
-  }
-  const pins = {
-    main:    { ll:[9.997740, 122.814635], label:"ADMIN" },
-    college: { ll:[9.997605, 122.814315], label:"COLLEGE ★" },
-    arts:    { ll:[9.997650, 122.814910], label:"ST. COLUMBAN" },
-    hs:      { ll:[9.997605, 122.815321], label:"HIGH SCHOOL" },
-    annex:   { ll:[9.997380, 122.814910], label:"ANNEX" },
-    chapel:  { ll:[9.997335, 122.815321], label:"CHAPEL" },
-    elem:    { ll:[9.997065, 122.814315], label:"ELEMENTARY" },
-    gym:     { ll:[9.997020, 122.815276], label:"GYM" }
-  };
-  const GATE = [9.997965, 122.814818];
-  const walk = { main:"a few steps left of the gate", college:"1 min left, west wing",
-    arts:"straight ahead, big hall", hs:"1 min right, 3-storey block", annex:"straight, behind the Arts Center",
-    elem:"2 min left, beside the canteen", chapel:"right, in front of High School", gym:"3 min south-east" };
-  const floorTip = { "G/F":"Stay on the ground floor — no stairs.",
-    "2F":"Take the stairs to the 2nd floor.",
-    "3F":"Go up to the 3rd floor.", "4F":"Go up to the 4th floor (top)." };
-  const allRooms = [];
-  buildings.forEach(b=>b.rooms.forEach(r=>allRooms.push({...r, bldg:b.id, bldgName:b.name})));
+(function () {
+  'use strict';
 
-  // ---- photo pins + route ----
-  const pinLayer = document.getElementById('pins');
-  const routeLine = document.getElementById('route-line');
-  const pinEls = {};
-  function youPin(){
-    const [x,y] = toXY(GATE[0], GATE[1]);
-    const d = document.createElement('div');
-    d.className = 'pin';
-    d.style.left = (x/S*100)+'%'; d.style.top = (y/S*100)+'%';
-    d.innerHTML = `<span class="tag"><span class="kcc-you">YOU: MAIN GATE</span></span><span class="dot" style="background:#2563eb"></span>`;
-    pinLayer.appendChild(d);
-  }
-  buildings.forEach(b=>{
-    if(!pins[b.id]) return;
-    const [x,y] = toXY(pins[b.id].ll[0], pins[b.id].ll[1]);
-    const d = document.createElement('div');
-    d.className = 'pin'; d.title = b.name;
-    d.style.left = (x/S*100)+'%'; d.style.top = (y/S*100)+'%';
-    d.innerHTML = `<span class="tag"><span class="kcc-pin t-${b.type}">${pins[b.id].label}</span></span><span class="dot"></span>`;
-    d.addEventListener('click', ()=>render(b.id));
-    pinLayer.appendChild(d);
-    pinEls[b.id] = d;
-  });
-  youPin();
+  const KCC = JSON.parse(document.getElementById('kcc-gate').textContent);
+  const startBtn = document.getElementById('gps-start');
+  const stopBtn = document.getElementById('gps-stop');
+  const shareBtn = document.getElementById('gps-share');
+  const shareTopBtn = document.getElementById('gps-share-top');
+  const layersBtn = document.getElementById('gps-layers');
+  const compassBtn = document.getElementById('gps-compass');
+  const recenterBtn = document.getElementById('gps-recenter');
+  const statusRecentBtn = document.getElementById('gps-status-recenter');
+  const statusIcon = document.getElementById('gps-status-icon');
+  const statusText = document.getElementById('gps-status-text');
+  const toastEl = document.getElementById('gps-toast');
 
-  // ---- every subject on the map ----
-  const subjectOffsets = [[-108,16],[-72,38],[-36,16],[0,38],[36,16],[72,38],[108,16]];
-  const subjectPinEls = {};
-  subjects.forEach((s, i) => {
-    const pin = pins[s.building];
-    if(!pin) return;
-    const [x,y] = toXY(pin.ll[0], pin.ll[1]);
-    const off = subjectOffsets[i % subjectOffsets.length];
-    const d = document.createElement('div');
-    d.className = 'subject-pin';
-    d.style.left = (x/S*100)+'%';
-    d.style.top = (y/S*100)+'%';
-    d.style.marginLeft = off[0]+'px';
-    d.style.marginTop = off[1]+'px';
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = s.code;
-    btn.title = s.title + ' • ' + s.room;
-    btn.onclick = () => selectSubject(s.code);
-    d.appendChild(btn);
-    pinLayer.appendChild(d);
-    subjectPinEls[s.code] = btn;
-  });
+  let map;
+  let marker;
+  let watchId = null;
+  let watching = false;
+  let follow = true;
+  let satellite = false;
+  let livePos = null;
+  let liveAccuracy = null;
+  let toastTimer = null;
 
-  const chipWrap = document.getElementById('subject-chips');
-  subjects.forEach(s => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'subject-chip';
-    chip.dataset.subject = s.code;
-    chip.innerHTML = `<b>${s.code}</b><span>${s.room}</span>`;
-    chip.title = s.title;
-    chip.onclick = () => selectSubject(s.code);
-    chipWrap.appendChild(chip);
-  });
-
-  function selectSubject(code){
-    const s = subjects.find(x => x.code === code);
-    if(!s || !pins[s.building]) return;
-    const b = byId[s.building];
-    const room = b.rooms.find(r => r.code === s.room) ? s.room : b.rooms[0].code;
-    render(s.building, room);
-    document.querySelectorAll('.subject-chip').forEach(c => c.classList.toggle('sel', c.dataset.subject === code));
-    Object.keys(subjectPinEls).forEach(k => subjectPinEls[k].classList.toggle('sel', k === code));
+  function showToast(message) {
+    toastEl.textContent = message;
+    toastEl.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); }, 2800);
   }
 
-  function drawRoute(bid){
-    const [gx,gy] = toXY(GATE[0], GATE[1]);
-    const [dx,dy] = toXY(pins[bid].ll[0], pins[bid].ll[1]);
-    routeLine.setAttribute('points', `${gx},${gy} ${dx},${gy} ${dx},${dy}`);
-    routeLine.setAttribute('vector-effect', 'non-scaling-stroke');
+  function setStatus(title, sub, mode) {
+    statusText.innerHTML = title + (sub ? '<small>' + sub + '</small>' : '');
+    statusIcon.style.background = mode === 'live' ? '#16a34a' : mode === 'off' ? '#64748b' : '#2563eb';
+    statusIcon.innerHTML = '<i class="fas ' +
+      (mode === 'live' ? 'fa-satellite-dish' : mode === 'off' ? 'fa-power-off' : 'fa-circle-info') + '"></i>';
   }
 
-  // ---- guide panel (same logic as before) ----
-  const search = document.getElementById('room-search');
-  const results = document.getElementById('search-results');
-  let curRoom = null;
-
-  function stepsFor(b, r){
-    return [
-      "Enter via <b>Main Gate</b> on Guanzon St. (blue YOU pin).",
-      `Walk <b>${walk[b.id]||"follow the path"}</b> to <b>${b.name}</b> — follow the blue line.`,
-      `<b>${r.floor}</b>: ${floorTip[r.floor]||"Go inside."}`,
-      `Find <b>${r.code}</b> — ${r.detail||""}`
-    ];
+  function circlePolygon(lat, lng, radius) {
+    const R = 6378137;
+    const dLat = radius / R * 180 / Math.PI;
+    const dLng = radius / (R * Math.cos(lat * Math.PI / 180)) * 180 / Math.PI;
+    const coords = [];
+    for (let i = 0; i <= 64; i++) {
+      const a = i / 64 * 2 * Math.PI;
+      coords.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
+    }
+    return coords;
   }
-  function render(bid, roomCode){
-    const b = byId[bid]; if(!b || !pins[bid]) return;
-    document.querySelectorAll('.subject-chip.sel').forEach(c=>c.classList.remove('sel'));
-    Object.values(subjectPinEls).forEach(p=>p.classList.remove('sel'));
-    curRoom = b.rooms.find(r=>r.code===roomCode) || b.rooms[0];
-    Object.keys(pinEls).forEach(id=>pinEls[id].classList.toggle('sel', id===bid));
-    drawRoute(bid);
-    document.getElementById('guide-empty').classList.add('d-none');
-    document.getElementById('guide-detail').classList.remove('d-none');
-    document.getElementById('guide-title').textContent = b.name;
-    document.getElementById('guide-sub').textContent = `${b.floors} floor(s) • ${b.rooms.length} rooms`;
-    document.getElementById('room-name').textContent = "📍 " + curRoom.code;
-    document.getElementById('room-meta').textContent = `${b.name} • ${curRoom.floor} • ${curRoom.detail||""}`;
-    document.getElementById('steps').innerHTML = stepsFor(b,curRoom).map((s,i)=>
-      `<div class="d-flex gap-2 align-items-start"><span class="step-num">${i+1}</span><div>${s}</div></div>`).join('');
-    document.getElementById('gmaps-link').href =
-      `https://www.google.com/maps/dir/?api=1&destination=${pins[bid].ll[0]},${pins[bid].ll[1]}`;
-    const list=document.getElementById('room-list'); list.innerHTML='';
-    document.getElementById('room-count').textContent=`(${b.rooms.length})`;
-    b.rooms.forEach(r=>{
-      const d=document.createElement('div');
-      d.className='room-row'+(r.code===curRoom.code?' selected':'');
-      d.innerHTML=`<div><div class="fw-bold">${r.code}</div><div class="text-muted small">${r.detail||""}</div></div><span class="badge bg-primary-lt text-primary" style="height:fit-content">${r.floor}</span>`;
-      d.onclick=()=>render(bid, r.code);
-      list.appendChild(d);
+
+  function updateAccuracy(lat, lng, accuracy) {
+    const source = map && map.getSource('accuracy');
+    if (!source) return;
+    const radius = Math.min(Math.max(accuracy || 25, 8), 500);
+    source.setData({
+      type: 'Feature',
+      geometry: { type: 'Polygon', coordinates: [circlePolygon(lat, lng, radius)] }
     });
   }
-  window.guideTo = (bid)=>render(bid);
 
-  function doSearch(){
-    const q=search.value.trim().toLowerCase();
-    if(!q){ results.classList.add('d-none'); return; }
-    const hits=allRooms.filter(r=>(r.code+" "+r.bldgName).toLowerCase().includes(q)).slice(0,8);
-    if(!hits.length){ results.innerHTML='<div class="p-2 text-muted">No match. Try BSIT, Grade 7, STEM…</div>'; results.classList.remove('d-none'); return; }
-    results.innerHTML='';
-    hits.forEach(h=>{
-      const btn=document.createElement('button');
-      btn.innerHTML=`<b>${h.code}</b> <span class="text-muted">• ${h.bldgName} • ${h.floor}</span>`;
-      btn.onclick=()=>{ search.value=h.code; results.classList.add('d-none'); render(h.bldg, h.code); };
-      results.appendChild(btn);
+  function recenter(instant) {
+    follow = true;
+    const center = livePos ? [livePos[1], livePos[0]] : [KCC[1], KCC[0]];
+    map.easeTo({
+      center: center,
+      zoom: Math.max(map.getZoom(), 17),
+      bearing: 0,
+      pitch: 0,
+      duration: instant ? 0 : 650
     });
-    results.classList.remove('d-none');
+    recenterBtn.classList.add('active');
+    setTimeout(function () { recenterBtn.classList.remove('active'); }, 800);
   }
-  search.addEventListener('input', doSearch);
-  document.getElementById('clear-search').onclick=()=>{ search.value=''; results.classList.add('d-none'); search.focus(); };
-  document.querySelectorAll('[data-room]').forEach(b=>b.onclick=()=>{
-    const hit=allRooms.find(r=>r.code===b.dataset.room);
-    if(hit){ search.value=hit.code; render(hit.bldg, hit.code); }
-  });
-  document.addEventListener('click', e=>{ if(!e.target.closest('.position-relative')) results.classList.add('d-none'); });
 
-  render('college','BSIT 3-A');
+  function onFix(position) {
+    if (!watching) return;
+    const coords = position.coords;
+    livePos = [coords.latitude, coords.longitude];
+    liveAccuracy = coords.accuracy;
+    marker.setLngLat([livePos[1], livePos[0]]);
+    updateAccuracy(livePos[0], livePos[1], liveAccuracy);
+    setStatus(
+      'GPS signal acquired',
+      'Accuracy ±' + Math.round(liveAccuracy) + ' m • ' + livePos[0].toFixed(6) + ', ' + livePos[1].toFixed(6),
+      'live'
+    );
+    if (follow) {
+      map.easeTo({
+        center: [livePos[1], livePos[0]],
+        zoom: Math.max(map.getZoom(), 17),
+        duration: 700
+      });
+    }
+  }
+
+  function stopWatch() {
+    if (watchId != null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+    }
+    watching = false;
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  }
+
+  function onGpsError(error) {
+    if (error.code === error.TIMEOUT && watching) {
+      setStatus('Still locating…', 'GPS is taking longer than usual. Move to an open area.', 'live');
+      return;
+    }
+    stopWatch();
+    setStatus(
+      'Lost GPS signal. Getting LBS data',
+      error.code === error.PERMISSION_DENIED
+        ? 'Location permission denied — allow access and tap START.'
+        : 'Showing KCC campus until GPS is available.',
+      'lost'
+    );
+    showToast('GPS signal unavailable.');
+  }
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      setStatus('GPS not supported', 'This browser does not support geolocation.', 'off');
+      return;
+    }
+    if (watching) return;
+    watching = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    setStatus('Locating…', 'Requesting a GPS fix from your device.', 'live');
+    watchId = navigator.geolocation.watchPosition(onFix, onGpsError, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+      timeout: 20000
+    });
+  }
+
+  function stopTracking() {
+    stopWatch();
+    setStatus(
+      livePos ? 'GPS stopped' : 'Lost GPS signal. Getting LBS data',
+      livePos ? 'Last known position retained on the map.' : 'Showing KCC campus until GPS is available.',
+      livePos ? 'off' : 'lost'
+    );
+    showToast('Tracking stopped.');
+  }
+
+  function shareLocation() {
+    if (!livePos) {
+      showToast('Start tracking to share your live location.');
+      return;
+    }
+    const url = 'https://www.google.com/maps?q=' + livePos[0].toFixed(6) + ',' + livePos[1].toFixed(6);
+    const text = 'My live location: ' + livePos[0].toFixed(6) + ', ' + livePos[1].toFixed(6) + ' ' + url;
+    if (navigator.share) {
+      navigator.share({ title: 'My live location', text: text, url: url }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        showToast('Live location copied to clipboard.');
+      }).catch(function () {
+        showToast(text);
+      });
+      return;
+    }
+    showToast(text);
+  }
+
+  if (!window.maplibregl) {
+    document.getElementById('gps-map').innerHTML =
+      '<div style="padding:2rem;color:#0f172a;font-weight:700">Map engine failed to load. Check your internet connection and refresh.</div>';
+    return;
+  }
+
+  map = new maplibregl.Map({
+    container: 'gps-map',
+    style: {
+      version: 8,
+      sources: {
+        streets: {
+          type: 'raster',
+          tiles: ['https://a.tile.opentopomap.org/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          maxzoom: 17,
+          attribution: '&copy; OpenTopoMap (CC-BY-SA)'
+        },
+        satellite: {
+          type: 'raster',
+          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          tileSize: 256,
+          maxzoom: 18,
+          attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics'
+        }
+      },
+      layers: [
+        { id: 'streets', type: 'raster', source: 'streets' },
+        { id: 'satellite', type: 'raster', source: 'satellite', layout: { visibility: 'none' } }
+      ]
+    },
+    center: [KCC[1], KCC[0]],
+    zoom: 17,
+    attributionControl: false,
+    antialias: true
+  });
+
+  map.addControl(new maplibregl.AttributionControl({ compact: true }), 'top-left');
+
+  const dotEl = document.createElement('div');
+  dotEl.className = 'gps-dot';
+  marker = new maplibregl.Marker({ element: dotEl, anchor: 'center' })
+    .setLngLat([KCC[1], KCC[0]])
+    .addTo(map);
+
+  map.on('load', function () {
+    map.addSource('accuracy', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] }
+    });
+    map.addLayer({
+      id: 'accuracy-fill',
+      type: 'fill',
+      source: 'accuracy',
+      paint: { 'fill-color': '#2563eb', 'fill-opacity': 0.12 }
+    });
+    map.addLayer({
+      id: 'accuracy-line',
+      type: 'line',
+      source: 'accuracy',
+      paint: { 'line-color': '#2563eb', 'line-width': 1, 'line-opacity': 0.4 }
+    });
+  });
+
+  map.on('dragstart', function () {
+    follow = false;
+  });
+
+  startBtn.addEventListener('click', startTracking);
+  stopBtn.addEventListener('click', stopTracking);
+  shareBtn.addEventListener('click', shareLocation);
+  shareTopBtn.addEventListener('click', shareLocation);
+  recenterBtn.addEventListener('click', function () { recenter(false); });
+  statusRecentBtn.addEventListener('click', function () { recenter(false); });
+
+  layersBtn.addEventListener('click', function () {
+    satellite = !satellite;
+    map.setLayoutProperty('streets', 'visibility', satellite ? 'none' : 'visible');
+    map.setLayoutProperty('satellite', 'visibility', satellite ? 'visible' : 'none');
+    layersBtn.classList.toggle('active', satellite);
+    showToast(satellite ? 'Satellite view' : 'Street map view');
+  });
+
+  compassBtn.addEventListener('click', function () {
+    map.easeTo({ bearing: 0, pitch: 0, duration: 500 });
+    showToast('Compass reset to north.');
+  });
+
+  window.addEventListener('beforeunload', function () {
+    if (watchId != null) navigator.geolocation.clearWatch(watchId);
+  });
 })();
 </script>
 {% endblock %}

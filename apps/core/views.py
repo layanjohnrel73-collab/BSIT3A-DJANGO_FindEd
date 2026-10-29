@@ -322,11 +322,11 @@ CAMPUS_PATHS = {
 
 
 def home(request):
-    return render(request, 'home.html', {'buildings': CAMPUS_BUILDINGS, 'subjects': SUBJECTS})
+    return render(request, 'home.html', {'gate': KCC_GATE})
 
 
 def ride_view(request):
-    """First-person motorcycle ride map with real-time GPS + live routing."""
+    """Real Time GPS Tracker: live device position, trail recording, and classroom routing."""
     context = {
         'buildings': CAMPUS_BUILDINGS,
         'pins': CAMPUS_PINS,
@@ -336,6 +336,17 @@ def ride_view(request):
         'selected_subject': request.GET.get('subject', '').strip(),
     }
     return render(request, 'ride.html', context)
+
+
+def street_view(request):
+    """3D street viewer with extruded OpenStreetMap buildings and a walkable campus camera."""
+    context = {
+        'buildings': CAMPUS_BUILDINGS,
+        'pins': CAMPUS_PINS,
+        'paths': CAMPUS_PATHS,
+        'gate': KCC_GATE,
+    }
+    return render(request, 'street.html', context)
 
 
 @require_http_methods(['GET', 'POST'])

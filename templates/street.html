@@ -1,0 +1,716 @@
+{% extends "theme/base.html" %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+{% endblock %}
+{% block content %}
+{{ buildings|json_script:"street-buildings" }}
+{{ pins|json_script:"street-pins" }}
+{{ paths|json_script:"street-paths" }}
+{{ gate|json_script:"street-gate" }}
+<style>
+  .street-page { --street-accent: #ff7a00; --street-dark: #0b0d12; }
+  body { background: linear-gradient(135deg, #ff8c1a, #ff6a00) fixed !important; }
+  .page, .page-wrapper, .page-body { background: transparent !important; }
+  .street-head { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; justify-content: space-between; margin-bottom: .9rem; }
+  .street-head h2 { color: #140d06; font-weight: 800; letter-spacing: -.02em; }
+  .street-head .text-muted { color: #140d06 !important; }
+  .street-head .page-pretitle { color: #140d06; opacity: .75; }
+  .street-head .btn { color: #140d06 !important; }
+  .street-head .btn i { color: #140d06 !important; }
+
+  .street-shell { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid #2a2520;
+    box-shadow: 0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06); background: var(--street-dark); }
+  #street-map { width: 100%; height: clamp(560px, calc(100vh - 190px), 900px); background: #9cc7e8; }
+  .maplibregl-canvas { outline: none; }
+  .maplibregl-ctrl-group { background: rgba(13,16,22,.9) !important; border: 1px solid rgba(255,255,255,.14) !important; box-shadow: 0 8px 24px rgba(0,0,0,.4) !important; }
+  .maplibregl-ctrl-group button + button { border-top-color: rgba(255,255,255,.1) !important; }
+  .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(1) hue-rotate(180deg); }
+  .maplibregl-ctrl-attrib { background: rgba(0,0,0,.55) !important; color: #c9c4ba !important; border-radius: 8px 0 0 0 !important; }
+  .maplibregl-ctrl-attrib a { color: #ffb35c !important; }
+
+  .street-panel { position: absolute; z-index: 7; top: 14px; left: 14px; width: min(320px, calc(100% - 28px));
+    background: rgba(12,14,19,.86); backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%);
+    border: 1px solid rgba(255,255,255,.13); border-radius: 16px; padding: 14px; color: #f5f4f0;
+    box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .street-panel-head { display: flex; align-items: center; gap: .5rem; font-size: 11px; font-weight: 800;
+    letter-spacing: .14em; text-transform: uppercase; color: #ffb35c; margin-bottom: .7rem; }
+  .street-panel-head .dot { width: 8px; height: 8px; border-radius: 50%; background: #ff7a00; box-shadow: 0 0 0 4px rgba(255,122,0,.18); }
+  .street-panel .form-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: #9d978b; font-weight: 700; margin-bottom: .25rem; }
+  .street-panel .form-select { background-color: #101319; color: #f5f4f0; border-color: #33302a; font-weight: 600; }
+  .street-panel .form-select:focus { border-color: #ff7a00; box-shadow: 0 0 0 .2rem rgba(255,122,0,.2); }
+  .street-panel .form-select option { background: #101319; color: #f5f4f0; }
+  .btn-street { background: linear-gradient(135deg, #ff8c1a, #ff6a00); color: #140d06; font-weight: 800; border: 0;
+    border-radius: 10px; padding: .55rem .8rem; box-shadow: 0 8px 20px rgba(255,106,0,.3); }
+  .btn-street:hover { color: #140d06; filter: brightness(1.08); }
+  .btn-street-ghost { background: rgba(255,255,255,.06); color: #f5f4f0; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; }
+  .btn-street-ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .street-options { display: flex; gap: .35rem; margin-top: .55rem; flex-wrap: wrap; }
+  .street-options button { flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+    background: rgba(255,255,255,.06); color: #cfc9be; border: 1px solid rgba(255,255,255,.12); border-radius: 9px;
+    font-size: 11.5px; font-weight: 700; padding: .4rem .5rem; white-space: nowrap; }
+  .street-options button:hover { background: rgba(255,255,255,.12); color: #fff; }
+  .street-options button.active { background: rgba(255,122,0,.18); border-color: rgba(255,122,0,.55); color: #ffb35c; }
+  .street-status { margin-top: .55rem; font-size: 11px; color: #8fd3ff; display: flex; align-items: center; gap: .35rem; }
+  .street-status .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #38bdf8; animation: streetPulse 1.4s infinite; flex-shrink: 0; }
+  @keyframes streetPulse { 0% { box-shadow: 0 0 0 0 rgba(56,189,248,.65); } 100% { box-shadow: 0 0 0 9px rgba(56,189,248,0); } }
+
+  .street-hud { position: absolute; z-index: 7; top: 14px; right: 14px; width: 196px;
+    background: rgba(12,14,19,.86); backdrop-filter: blur(16px) saturate(130%); -webkit-backdrop-filter: blur(16px) saturate(130%);
+    border: 1px solid rgba(255,255,255,.13); border-radius: 16px; padding: 12px; color: #f5f4f0;
+    box-shadow: 0 18px 40px rgba(0,0,0,.45); }
+  .compass-wrap { display: flex; align-items: center; gap: .65rem; }
+  .compass { width: 58px; height: 58px; border-radius: 50%; border: 1px solid rgba(255,255,255,.16);
+    position: relative; background: radial-gradient(circle at 50% 40%, rgba(255,255,255,.09), rgba(255,255,255,.02)); flex-shrink: 0; }
+  .compass-dial { position: absolute; inset: 0; transition: transform .18s linear; }
+  .compass-dial span { position: absolute; font-size: 8.5px; font-weight: 800; color: #8b857a; }
+  .compass-dial .c-n { top: 3px; left: 50%; transform: translateX(-50%); color: #ffb35c; }
+  .compass-dial .c-e { right: 4px; top: 50%; transform: translateY(-50%); }
+  .compass-dial .c-s { bottom: 3px; left: 50%; transform: translateX(-50%); }
+  .compass-dial .c-w { left: 4px; top: 50%; transform: translateY(-50%); }
+  .compass-needle { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #ff7a00; font-size: 19px; text-shadow: 0 0 12px rgba(255,122,0,.7); }
+  .compass-read b { display: block; font-size: 20px; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
+  .compass-read span { font-size: 9.5px; color: #9d978b; text-transform: uppercase; letter-spacing: .12em; font-weight: 700; }
+  .hud-stats { margin-top: .6rem; padding-top: .5rem; border-top: 1px solid rgba(255,255,255,.09); display: grid; gap: .28rem; }
+  .hud-stats div { display: flex; justify-content: space-between; gap: .5rem; font-size: 10.5px; color: #9d978b; }
+  .hud-stats b { color: #fff; font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .street-controls { position: absolute; z-index: 7; left: 14px; bottom: 14px; display: flex; gap: .5rem; align-items: flex-end; }
+  .street-dpad { display: grid; grid-template-columns: repeat(3, 44px); grid-template-rows: repeat(2, 44px); gap: 6px; }
+  .street-dpad button, .street-tilt button { display: flex; align-items: center; justify-content: center;
+    background: rgba(12,14,19,.86); color: #f5f4f0; border: 1px solid rgba(255,255,255,.16); border-radius: 11px;
+    font-size: 15px; box-shadow: 0 8px 20px rgba(0,0,0,.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .street-dpad button:hover, .street-tilt button:hover { background: rgba(255,122,0,.22); border-color: rgba(255,122,0,.6); color: #ffd39b; }
+  #rot-left { grid-column: 1; grid-row: 1; }
+  #move-forward { grid-column: 2; grid-row: 1; color: #ffb35c; }
+  #rot-right { grid-column: 3; grid-row: 1; }
+  #move-left { grid-column: 1; grid-row: 2; }
+  #move-back { grid-column: 2; grid-row: 2; }
+  #move-right { grid-column: 3; grid-row: 2; }
+  .street-tilt { display: flex; flex-direction: column; gap: 6px; }
+  .street-tilt button { width: 44px; height: 44px; }
+
+  .street-hint { position: absolute; z-index: 6; left: 50%; bottom: 16px; transform: translateX(-50%);
+    background: rgba(12,14,19,.82); border: 1px solid rgba(255,255,255,.12); color: #cfc9be;
+    font-size: 11px; font-weight: 600; padding: .42rem .85rem; border-radius: 999px; white-space: nowrap;
+    max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .street-hint kbd { background: rgba(255,255,255,.12); border-radius: 4px; padding: 0 .25rem; color: #ffd39b; font-size: 10px; }
+
+  .street-toast { position: absolute; z-index: 9; left: 50%; top: 14px; transform: translate(-50%, -12px);
+    background: rgba(12,14,19,.94); border: 1px solid rgba(255,122,0,.4); color: #f5f4f0; padding: .55rem .9rem;
+    border-radius: 999px; font-size: 12.5px; font-weight: 700; opacity: 0; pointer-events: none;
+    transition: all .25s ease; white-space: nowrap; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis; }
+  .street-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+  .street-pin { display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; }
+  .street-pin .dot { width: 13px; height: 13px; border-radius: 50%; background: #ff7a00; border: 2px solid #fff;
+    box-shadow: 0 3px 10px rgba(0,0,0,.5); transition: transform .15s ease; }
+  .street-pin .label { font-size: 9px; font-weight: 800; letter-spacing: .05em; color: #ffd39b;
+    background: rgba(10,12,16,.86); border: 1px solid rgba(255,122,0,.45); padding: .12rem .4rem;
+    border-radius: 999px; white-space: nowrap; }
+  .street-pin:hover .dot { transform: scale(1.35); }
+  .street-dest { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; }
+  .street-dest .pin { width: 34px; height: 34px; border-radius: 50% 50% 50% 6px; transform: rotate(-45deg);
+    background: linear-gradient(135deg,#ff8c1a,#ff5e00); border: 2px solid #fff; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+  .street-dest .pin i { transform: rotate(45deg); color: #1b1208; font-size: 14px; }
+  .street-dest .tag { background: rgba(10,12,16,.9); border: 1px solid rgba(255,122,0,.5); color: #ffd39b;
+    font-size: 10px; font-weight: 800; letter-spacing: .06em; padding: .18rem .45rem; border-radius: 999px; white-space: nowrap; }
+
+  .street-help { display: flex; flex-wrap: wrap; gap: .35rem 1rem; margin-top: .7rem; font-size: 11.5px; color: #140d06; }
+  .street-help i { color: #140d06; }
+
+  @media (max-width: 767.98px) {
+    #street-map { height: clamp(520px, calc(100vh - 170px), 820px); }
+    .street-hud { top: auto; bottom: 150px; right: 14px; width: auto; padding: 9px; }
+    .street-hud .hud-stats { display: none; }
+    .compass { width: 48px; height: 48px; }
+    .compass-read b { font-size: 16px; }
+    .street-controls { transform: scale(.92); transform-origin: bottom left; }
+    .street-hint { display: none; }
+  }
+</style>
+
+<div class="street-page">
+  <div class="street-head">
+    <div>
+      <div class="page-pretitle">FindEd • KCC Campus</div>
+      <h2 class="page-title mb-1"><i class="fas fa-street-view me-2" style="color:#ff7a00"></i>3D Street Viewer</h2>
+      <div class="text-muted">Walk the campus at street level — real OpenStreetMap 3D buildings, free look, and guided tours.</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+      <a href="{% url 'ride' %}" class="btn btn-outline-secondary"><i class="fas fa-satellite-dish me-1"></i> GPS Tracker</a>
+      <a href="{% url 'finder' %}" class="btn btn-outline-secondary"><i class="fas fa-location-crosshairs me-1"></i> Finder</a>
+    </div>
+  </div>
+
+  <div class="street-shell">
+    <div id="street-map"></div>
+
+    <!-- Street viewer controls -->
+    <div class="street-panel">
+      <div class="street-panel-head"><span class="dot"></span> Street Viewer <span class="ms-auto" style="color:#6f6a61">3D</span></div>
+      <label class="form-label" for="street-dest">Destination building</label>
+      <select id="street-dest" class="form-select form-select-sm mb-2"></select>
+      <div class="d-flex gap-2">
+        <button id="tour-btn" class="btn btn-street flex-grow-1"><i class="fas fa-person-walking me-1"></i> Start Street Tour</button>
+        <button id="reset-btn" class="btn btn-street-ghost" title="Reset view"><i class="fas fa-rotate-left"></i></button>
+      </div>
+      <div class="street-options">
+        <button id="gps-btn" title="Center the street view on my location"><i class="fas fa-location-crosshairs"></i> My Location</button>
+        <button id="level-btn" class="active" title="Street-level camera"><i class="fas fa-person"></i> Street</button>
+        <button id="top-btn" title="Top-down camera"><i class="fas fa-map"></i> Top</button>
+      </div>
+      <div id="street-status" class="street-status d-none"><span class="live-dot"></span><span id="street-status-text">Ready</span></div>
+    </div>
+
+    <!-- Compass + camera HUD -->
+    <div class="street-hud">
+      <div class="compass-wrap">
+        <div class="compass">
+          <div class="compass-dial" id="compass-dial">
+            <span class="c-n">N</span><span class="c-e">E</span><span class="c-s">S</span><span class="c-w">W</span>
+          </div>
+          <i class="fas fa-caret-up compass-needle"></i>
+        </div>
+        <div class="compass-read">
+          <b id="bearing-val">0°</b>
+          <span>Heading</span>
+        </div>
+      </div>
+      <div class="hud-stats">
+        <div><span>Pitch</span><b id="pitch-val">72°</b></div>
+        <div><span>Zoom</span><b id="zoom-val">18.3</b></div>
+        <div><span>Position</span><b id="pos-val">—</b></div>
+      </div>
+    </div>
+
+    <!-- Walk / look controls -->
+    <div class="street-controls">
+      <div class="street-dpad">
+        <button id="rot-left" title="Turn left (Q)"><i class="fas fa-undo"></i></button>
+        <button id="move-forward" title="Walk forward (W / ↑)"><i class="fas fa-arrow-up"></i></button>
+        <button id="rot-right" title="Turn right (E)"><i class="fas fa-redo"></i></button>
+        <button id="move-left" title="Step left (A / ←)"><i class="fas fa-arrow-left"></i></button>
+        <button id="move-back" title="Walk back (S / ↓)"><i class="fas fa-arrow-down"></i></button>
+        <button id="move-right" title="Step right (D / →)"><i class="fas fa-arrow-right"></i></button>
+      </div>
+      <div class="street-tilt">
+        <button id="tilt-up" title="Look up (R)"><i class="fas fa-angle-up"></i></button>
+        <button id="tilt-down" title="Look down (F)"><i class="fas fa-angle-down"></i></button>
+      </div>
+    </div>
+
+    <div class="street-hint">Drag to look • <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to walk • <kbd>Q</kbd><kbd>E</kbd> turn • <kbd>R</kbd><kbd>F</kbd> tilt</div>
+    <div class="street-toast" id="street-toast"></div>
+  </div>
+
+  <div class="street-help">
+    <span><i class="fas fa-cube me-1"></i>3D buildings from OpenStreetMap via OpenFreeMap</span>
+    <span><i class="fas fa-hand-pointer me-1"></i>Drag the map to look around</span>
+    <span><i class="fas fa-person-walking me-1"></i>Walk or take a guided street tour</span>
+    <span><i class="fas fa-location-crosshairs me-1"></i>Start from your real position</span>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const buildings = JSON.parse(document.getElementById('street-buildings').textContent);
+  const PINS = JSON.parse(document.getElementById('street-pins').textContent);
+  const PATHS = JSON.parse(document.getElementById('street-paths').textContent);
+  const GATE = JSON.parse(document.getElementById('street-gate').textContent);
+
+  const mapEl = document.getElementById('street-map');
+  const destSel = document.getElementById('street-dest');
+  const tourBtn = document.getElementById('tour-btn');
+  const resetBtn = document.getElementById('reset-btn');
+  const gpsBtn = document.getElementById('gps-btn');
+  const levelBtn = document.getElementById('level-btn');
+  const topBtn = document.getElementById('top-btn');
+  const statusEl = document.getElementById('street-status');
+  const statusText = document.getElementById('street-status-text');
+  const bearingVal = document.getElementById('bearing-val');
+  const compassDial = document.getElementById('compass-dial');
+  const pitchVal = document.getElementById('pitch-val');
+  const zoomVal = document.getElementById('zoom-val');
+  const posVal = document.getElementById('pos-val');
+  const toastEl = document.getElementById('street-toast');
+
+  if (!window.maplibregl) {
+    mapEl.innerHTML = '<div style="padding:2rem;color:#f5f4f0">Map engine failed to load. Check your internet connection and refresh.</div>';
+    return;
+  }
+
+  let destId = buildings.some(function (b) { return b.id === 'college'; }) ? 'college' : buildings[0].id;
+  let map;
+  let mapReady = false;
+  let destMarker, destMarkerEl;
+  let tour = { playing: false, coords: [], cum: [], total: 0, progress: 0, speed: 5.5, last: 0, token: 0 };
+  let look = { active: false, id: null, x: 0, y: 0 };
+  const pointers = new Set();
+
+  buildings.forEach(function (b) {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    destSel.appendChild(opt);
+  });
+  destSel.value = destId;
+
+  function toRad(d) { return d * Math.PI / 180; }
+  function haversine(a, b) {
+    const R = 6371000;
+    const dLat = toRad(b[0] - a[0]);
+    const dLng = toRad(b[1] - a[1]);
+    const la1 = toRad(a[0]);
+    const la2 = toRad(b[0]);
+    const h = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(la1) * Math.cos(la2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    return 2 * R * Math.asin(Math.sqrt(h));
+  }
+  function bearing(a, b) {
+    const lat1 = toRad(a[0]), lat2 = toRad(b[0]);
+    const dLng = toRad(b[1] - a[1]);
+    const y = Math.sin(dLng) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+    return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  }
+  function destinationPoint(lat, lng, bearingDeg, dist) {
+    const R = 6378137;
+    const d = dist / R;
+    const brng = toRad(bearingDeg);
+    const lat1 = toRad(lat);
+    const lng1 = toRad(lng);
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(brng));
+    const lng2 = lng1 + Math.atan2(
+      Math.sin(brng) * Math.sin(d) * Math.cos(lat1),
+      Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+    );
+    return {
+      lat: lat2 * 180 / Math.PI,
+      lng: ((lng2 * 180 / Math.PI + 540) % 360) - 180
+    };
+  }
+  function formatDist(m) {
+    if (m == null || !isFinite(m)) return '—';
+    if (m >= 1000) return (m / 1000).toFixed(2) + ' km';
+    return Math.max(0, Math.round(m)) + ' m';
+  }
+  function destBuilding() {
+    return buildings.find(function (b) { return b.id === destId; }) || buildings[0];
+  }
+  function destName() {
+    return destBuilding() ? destBuilding().name : destId;
+  }
+
+  function showToast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('show');
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function () { toastEl.classList.remove('show'); }, ms || 3000);
+  }
+  function setStatus(text) {
+    statusEl.classList.remove('d-none');
+    statusText.textContent = text;
+  }
+
+  const initialPin = PINS[destId] || GATE;
+  map = new maplibregl.Map({
+    container: 'street-map',
+    style: 'https://tiles.openfreemap.org/styles/liberty',
+    center: [GATE[1], GATE[0]],
+    zoom: 18.3,
+    pitch: 72,
+    bearing: bearing(GATE, initialPin),
+    maxPitch: 85,
+    antialias: true,
+    attributionControl: false
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+  map.addControl(new maplibregl.AttributionControl({ compact: true }));
+  map.dragPan.disable();
+  map.dragRotate.disable();
+  map.keyboard.disable();
+
+  map.on('load', function () {
+    mapReady = true;
+
+    try {
+      map.setSky({
+        'sky-color': '#6cb7e8',
+        'horizon-color': '#e8f4fb',
+        'fog-color': '#cfe3ef',
+        'fog-ground-blend': 0.9,
+        'horizon-fog-blend': 0.6,
+        'sky-horizon-blend': 0.7,
+        'atmosphere-blend': 0.35
+      });
+    } catch (err) { }
+
+    if (map.getLayer('building-3d')) {
+      map.setPaintProperty('building-3d', 'fill-extrusion-color', [
+        'interpolate', ['linear'], ['to-number', ['get', 'render_height'], 0],
+        0, '#b7b1a6',
+        8, '#cdc7bb',
+        20, '#e2dcd0',
+        60, '#f1ece3'
+      ]);
+      map.setPaintProperty('building-3d', 'fill-extrusion-height',
+        ['max', 8, ['to-number', ['get', 'render_height'], 8]]);
+      map.setPaintProperty('building-3d', 'fill-extrusion-opacity', 0.96);
+    }
+
+    addBuildingMarkers();
+    addDestMarker();
+    updateHud();
+    setStatus('Street level • 3D buildings from OpenStreetMap');
+  });
+
+  map.on('move', updateHud);
+
+  function updateHud() {
+    const b = map.getBearing();
+    const p = map.getPitch();
+    const z = map.getZoom();
+    const c = map.getCenter();
+    bearingVal.textContent = Math.round((b + 360) % 360) + '°';
+    compassDial.style.transform = 'rotate(' + (-b) + 'deg)';
+    pitchVal.textContent = Math.round(p) + '°';
+    zoomVal.textContent = z.toFixed(1);
+    posVal.textContent = c.lat.toFixed(5) + ', ' + c.lng.toFixed(5);
+  }
+
+  function addBuildingMarkers() {
+    buildings.forEach(function (b) {
+      const pin = PINS[b.id];
+      if (!pin) return;
+      const el = document.createElement('div');
+      el.className = 'street-pin';
+      el.innerHTML = '<span class="dot"></span><span class="label"></span>';
+      el.querySelector('.label').textContent = b.short;
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        selectDestination(b.id);
+      });
+      new maplibregl.Marker({ element: el, anchor: 'bottom' })
+        .setLngLat([pin[1], pin[0]])
+        .addTo(map);
+    });
+  }
+
+  function addDestMarker() {
+    destMarkerEl = document.createElement('div');
+    destMarkerEl.className = 'street-dest';
+    destMarkerEl.innerHTML = '<div class="pin"><i class="fas fa-flag-checkered"></i></div><div class="tag">DESTINATION</div>';
+    destMarker = new maplibregl.Marker({ element: destMarkerEl, anchor: 'bottom' })
+      .setLngLat([GATE[1], GATE[0]])
+      .addTo(map);
+    positionDestMarker();
+  }
+
+  function positionDestMarker() {
+    if (!destMarker) return;
+    const pin = PINS[destId];
+    if (!pin) return;
+    destMarker.setLngLat([pin[1], pin[0]]);
+    const tag = destMarkerEl.querySelector('.tag');
+    if (tag) tag.textContent = 'DESTINATION • ' + destBuilding().short;
+  }
+
+  function selectDestination(id) {
+    if (!PINS[id]) return;
+    destId = id;
+    destSel.value = id;
+    positionDestMarker();
+    stopTour();
+    flyToBuilding(id);
+    setStatus('Destination: ' + destName());
+  }
+
+  function flyToBuilding(id) {
+    if (!mapReady) return;
+    const pin = PINS[id];
+    if (!pin) return;
+    const c = map.getCenter();
+    const approach = bearing(pin, [c.lat, c.lng]);
+    const stand = destinationPoint(pin[0], pin[1], approach, 26);
+    map.flyTo({
+      center: [stand.lng, stand.lat],
+      bearing: bearing([stand.lat, stand.lng], pin),
+      pitch: 72,
+      zoom: 18.4,
+      duration: 1500,
+      essential: true
+    });
+  }
+
+  function resetView() {
+    if (!mapReady) return;
+    stopTour();
+    const pin = PINS[destId] || GATE;
+    map.flyTo({
+      center: [GATE[1], GATE[0]],
+      bearing: bearing(GATE, pin),
+      pitch: 72,
+      zoom: 18.3,
+      duration: 1200,
+      essential: true
+    });
+    setStatus('Street level • 3D buildings from OpenStreetMap');
+  }
+
+  function pointAt(dist) {
+    if (!tour.coords.length) return null;
+    const d = Math.max(0, Math.min(dist, tour.total));
+    let i = 0;
+    while (i < tour.cum.length - 2 && tour.cum[i + 1] < d) i++;
+    const segLen = Math.max(tour.cum[i + 1] - tour.cum[i], 0.0001);
+    const t = Math.max(0, Math.min(1, (d - tour.cum[i]) / segLen));
+    const a = tour.coords[i];
+    const b = tour.coords[i + 1] || tour.coords[i];
+    return {
+      lat: a[0] + (b[0] - a[0]) * t,
+      lng: a[1] + (b[1] - a[1]) * t,
+      heading: bearing(a, b)
+    };
+  }
+
+  function startTour() {
+    if (!mapReady) return;
+    if (tour.playing) {
+      stopTour();
+      return;
+    }
+    const raw = PATHS[destId] || PATHS.college || [];
+    const coords = raw
+      .map(function (p) { return [Number(p[0]), Number(p[1])]; })
+      .filter(function (p) { return isFinite(p[0]) && isFinite(p[1]); });
+    if (coords.length < 2) {
+      showToast('No street path recorded for this destination.', 3000);
+      return;
+    }
+    tour.coords = coords;
+    tour.cum = [0];
+    for (let i = 1; i < coords.length; i++) {
+      tour.cum[i] = tour.cum[i - 1] + haversine(coords[i - 1], coords[i]);
+    }
+    tour.total = tour.cum[tour.cum.length - 1];
+    tour.progress = 0;
+    tour.playing = true;
+    tour.last = performance.now();
+    tour.token++;
+    tourBtn.innerHTML = '<i class="fas fa-stop me-1"></i> Stop Tour';
+    map.easeTo({
+      pitch: 72,
+      zoom: 18.4,
+      bearing: bearing(coords[0], coords[1]),
+      duration: 700
+    });
+    setStatus('Street tour • ' + destName() + ' • ' + formatDist(tour.total));
+    showToast('Street tour started — ' + destName(), 2600);
+    requestAnimationFrame(tourFrame);
+  }
+
+  function tourFrame(now) {
+    if (!tour.playing) return;
+    const token = tour.token;
+    const dt = Math.min((now - tour.last) / 1000, 0.1);
+    tour.last = now;
+    tour.progress += tour.speed * dt;
+    const p = pointAt(tour.progress);
+    if (p) {
+      map.jumpTo({
+        center: [p.lng, p.lat],
+        bearing: p.heading,
+        pitch: 72,
+        zoom: 18.4
+      });
+    }
+    if (tour.progress >= tour.total) {
+      stopTour(true);
+      showToast('Arrived at ' + destName(), 3200);
+      return;
+    }
+    if (token === tour.token) requestAnimationFrame(tourFrame);
+  }
+
+  function stopTour(arrived) {
+    if (!tour.playing) return;
+    tour.playing = false;
+    tour.token++;
+    tourBtn.innerHTML = arrived
+      ? '<i class="fas fa-person-walking me-1"></i> Tour Again'
+      : '<i class="fas fa-person-walking me-1"></i> Start Street Tour';
+    if (arrived) {
+      setStatus('Arrived at ' + destName());
+    } else {
+      setStatus('Street level • 3D buildings from OpenStreetMap');
+    }
+  }
+
+  function moveStep(meters) {
+    if (!mapReady) return;
+    stopTour();
+    const c = map.getCenter();
+    const p = destinationPoint(c.lat, c.lng, map.getBearing(), meters);
+    map.easeTo({
+      center: [p.lng, p.lat],
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+      zoom: map.getZoom(),
+      duration: 260
+    });
+  }
+
+  function strafeStep(meters) {
+    if (!mapReady) return;
+    stopTour();
+    const c = map.getCenter();
+    const p = destinationPoint(c.lat, c.lng, map.getBearing() + 90, meters);
+    map.easeTo({
+      center: [p.lng, p.lat],
+      bearing: map.getBearing(),
+      pitch: map.getPitch(),
+      zoom: map.getZoom(),
+      duration: 260
+    });
+  }
+
+  function turnStep(deg) {
+    if (!mapReady) return;
+    stopTour();
+    map.easeTo({ bearing: map.getBearing() + deg, duration: 280 });
+  }
+
+  function tiltStep(deg) {
+    if (!mapReady) return;
+    map.easeTo({
+      pitch: Math.max(25, Math.min(85, map.getPitch() + deg)),
+      duration: 280
+    });
+  }
+
+  function setStreetLevel() {
+    if (!mapReady) return;
+    stopTour();
+    map.easeTo({ pitch: 72, zoom: Math.max(map.getZoom(), 18), duration: 800 });
+    levelBtn.classList.add('active');
+    topBtn.classList.remove('active');
+    setStatus('Street level • 3D buildings from OpenStreetMap');
+  }
+
+  function setTopView() {
+    if (!mapReady) return;
+    stopTour();
+    map.easeTo({ pitch: 0, zoom: 17.5, duration: 800 });
+    topBtn.classList.add('active');
+    levelBtn.classList.remove('active');
+    setStatus('Top view • drag to look, scroll to zoom');
+  }
+
+  function locateMe() {
+    if (!navigator.geolocation) {
+      showToast('GPS is not supported by this browser.', 3200);
+      return;
+    }
+    stopTour();
+    gpsBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Locating';
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      const c = pos.coords;
+      gpsBtn.innerHTML = '<i class="fas fa-location-crosshairs"></i> My Location';
+      const heading = (typeof c.heading === 'number' && isFinite(c.heading)) ? c.heading : map.getBearing();
+      map.flyTo({
+        center: [c.longitude, c.latitude],
+        bearing: heading,
+        pitch: 72,
+        zoom: 18.4,
+        duration: 1500,
+        essential: true
+      });
+      setStatus('Your location • ±' + Math.round(c.accuracy) + ' m');
+      showToast('Street view centered on your live position.', 2800);
+    }, function (err) {
+      gpsBtn.innerHTML = '<i class="fas fa-location-crosshairs"></i> My Location';
+      showToast(err.code === 1 ? 'Location permission denied — allow location access.' : 'Could not get your location.', 4000);
+    }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
+  }
+
+  /* ---------------- free look ---------------- */
+  const canvas = map.getCanvasContainer();
+  canvas.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.target.closest && e.target.closest('.street-pin')) return;
+    pointers.add(e.pointerId);
+    if (pointers.size > 1) {
+      look.active = false;
+      return;
+    }
+    look.active = true;
+    look.id = e.pointerId;
+    look.x = e.clientX;
+    look.y = e.clientY;
+    stopTour();
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { }
+  });
+
+  canvas.addEventListener('pointermove', function (e) {
+    if (!look.active || look.id !== e.pointerId || pointers.size > 1) return;
+    const dx = e.clientX - look.x;
+    const dy = e.clientY - look.y;
+    look.x = e.clientX;
+    look.y = e.clientY;
+    map.setBearing(map.getBearing() - dx * 0.32);
+    map.setPitch(Math.max(25, Math.min(85, map.getPitch() - dy * 0.22)));
+    updateHud();
+  });
+
+  function endLook(e) {
+    pointers.delete(e.pointerId);
+    if (look.id === e.pointerId) look.active = false;
+  }
+  canvas.addEventListener('pointerup', endLook);
+  canvas.addEventListener('pointercancel', endLook);
+
+  /* ---------------- events ---------------- */
+  destSel.addEventListener('change', function () {
+    selectDestination(destSel.value);
+  });
+
+  tourBtn.addEventListener('click', startTour);
+  resetBtn.addEventListener('click', resetView);
+  gpsBtn.addEventListener('click', locateMe);
+  levelBtn.addEventListener('click', setStreetLevel);
+  topBtn.addEventListener('click', setTopView);
+
+  document.getElementById('move-forward').addEventListener('click', function () { moveStep(9); });
+  document.getElementById('move-back').addEventListener('click', function () { moveStep(-9); });
+  document.getElementById('move-left').addEventListener('click', function () { strafeStep(-7); });
+  document.getElementById('move-right').addEventListener('click', function () { strafeStep(7); });
+  document.getElementById('rot-left').addEventListener('click', function () { turnStep(-15); });
+  document.getElementById('rot-right').addEventListener('click', function () { turnStep(15); });
+  document.getElementById('tilt-up').addEventListener('click', function () { tiltStep(8); });
+  document.getElementById('tilt-down').addEventListener('click', function () { tiltStep(-8); });
+
+  document.addEventListener('keydown', function (e) {
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+    const key = e.key.toLowerCase();
+    if (key === 'w' || key === 'arrowup') { e.preventDefault(); moveStep(9); }
+    else if (key === 's' || key === 'arrowdown') { e.preventDefault(); moveStep(-9); }
+    else if (key === 'a' || key === 'arrowleft') { e.preventDefault(); strafeStep(-7); }
+    else if (key === 'd' || key === 'arrowright') { e.preventDefault(); strafeStep(7); }
+    else if (key === 'q') { e.preventDefault(); turnStep(-15); }
+    else if (key === 'e') { e.preventDefault(); turnStep(15); }
+    else if (key === 'r') { e.preventDefault(); tiltStep(8); }
+    else if (key === 'f') { e.preventDefault(); tiltStep(-8); }
+  });
+})();
+</script>
+{% endblock %}

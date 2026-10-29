@@ -43,9 +43,25 @@
         <li class="nav-item mb-1">
           <a class="nav-link {% if request.resolver_match.url_name == 'finder' %}active{% endif %}" href="{% url 'finder' %}">
             <span class="nav-link-icon d-md-none d-lg-inline-block">
-              <i class="fa-solid fa-map-location-dot"></i>
+              <i class="fa-solid fa-location-crosshairs"></i>
             </span>
             <span class="nav-link-title">Finder</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'ride' %}active{% endif %}" href="{% url 'ride' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-satellite-dish"></i>
+            </span>
+            <span class="nav-link-title">Live Tracker</span>
+          </a>
+        </li>
+        <li class="nav-item mb-1">
+          <a class="nav-link {% if request.resolver_match.url_name == 'street' %}active{% endif %}" href="{% url 'street' %}">
+            <span class="nav-link-icon d-md-none d-lg-inline-block">
+              <i class="fa-solid fa-street-view"></i>
+            </span>
+            <span class="nav-link-title">Street Viewer</span>
           </a>
         </li>
 
