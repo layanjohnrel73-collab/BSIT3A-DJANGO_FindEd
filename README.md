@@ -2,6 +2,10 @@
 
 A Django-based classroom finder system to help new students locate their classrooms.
 
+## Project Document
+
+- [FindED Concept Paper](./FindED_Concept_Paper.pdf)
+
 ## Group Members
 
 - Stephine Nickle Gestupa
